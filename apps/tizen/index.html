@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=1920, user-scalable=no" />
+    <title>Flixor Tizen</title>
+    <!-- Tizen WebAPI -->
+    <script src="$WEBAPIS/webapis/webapis.js"></script>
+  </head>
+  <body style="background: #050505; color: white; margin: 0; overflow: hidden">
+    <div id="root">
+      <h1>FLIXOR LOADING...</h1>
+    </div>
+    <div
+      id="debug-overlay"
+      style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        color: white;
+        background: rgba(255, 0, 0, 0.5);
+        z-index: 9999;
+        display: none;
+        padding: 10px;
+        font-family: monospace;
+      "
+    ></div>
+    <script>
+      window.onerror = function (msg, url, line, col, error) {
+        var el = document.getElementById("debug-overlay");
+        el.style.display = "block";
+        el.innerHTML +=
+          "<p>Error: " + msg + "<br>@ " + url + ":" + line + "</p>";
+        return false;
+      };
+      console.log("Flixor Tizen Hub Started");
+      if (typeof tizen !== 'undefined') {
+        console.log("Tizen Object Detected:", Object.keys(tizen));
+      } else {
+        console.warn("Tizen Object NOT Detected (not on Tizen device?)");
+      }
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

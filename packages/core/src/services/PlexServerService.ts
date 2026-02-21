@@ -161,10 +161,10 @@ export class PlexServerService {
   /**
    * Get metadata for a specific item
    */
-  async getMetadata(ratingKey: string, includeGuids = false): Promise<PlexMediaItem | null> {
+  async getMetadata(ratingKey: string): Promise<PlexMediaItem | null> {
     const data = await this.get<PlexMediaContainer<PlexMediaItem>>(
       `/library/metadata/${ratingKey}`,
-      includeGuids ? { includeGuids: '1' } : undefined,
+      { includeGuids: '1', includeExtras: '1' },
       CacheTTL.TRENDING
     );
     return data.MediaContainer?.Metadata?.[0] || null;

@@ -40,11 +40,11 @@ interface PlexResource {
  * Service for Plex.tv authentication (PIN-based auth flow)
  */
 export class PlexAuthService {
-  private clientId: string;
-  private productName: string;
-  private productVersion: string;
-  private platform: string;
-  private deviceName: string;
+  private readonly clientId: string;
+  private readonly productName: string;
+  private readonly productVersion: string;
+  private readonly platform: string;
+  private readonly deviceName: string;
 
   constructor(options: {
     clientId: string;
@@ -88,16 +88,15 @@ export class PlexAuthService {
    * User should visit app.plex.tv/auth with the code pre-filled
    */
   async createPin(): Promise<PlexPin> {
-    // Use X-Plex-Model: hosted for web-based auth flow (app.plex.tv/auth)
     const headers = {
       ...this.getHeaders(),
       'Content-Type': 'application/x-www-form-urlencoded',
-      'X-Plex-Model': 'hosted',
     };
 
-    const response = await fetch(`${PLEX_TV_URL}/api/v2/pins?strong=true`, {
+    const response = await fetch(`${PLEX_TV_URL}/api/v2/pins`, {
       method: 'POST',
       headers,
+      body: 'strong=false',
     });
 
     if (!response.ok) {

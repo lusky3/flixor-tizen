@@ -109,6 +109,24 @@ export interface PlexMediaItem {
 
   // Markers (intro/credits)
   Marker?: PlexMarker[];
+
+  // Extended metadata
+  Role?: Array<{ id?: string; filter?: string; tag?: string; role?: string; thumb?: string }>;
+  Director?: Array<{ id?: string; filter?: string; tag?: string }>;
+  Writer?: Array<{ id?: string; filter?: string; tag?: string }>;
+  Producer?: Array<{ id?: string; filter?: string; tag?: string }>;
+  Collection?: Array<{ id?: string; filter?: string; tag?: string }>;
+  Genre?: Array<{ id?: string; filter?: string; tag?: string }>;
+  Country?: Array<{ id?: string; filter?: string; tag?: string }>;
+
+  // TV Show hierarchy extras
+  grandparentGuid?: Array<{ id: string }>;
+
+  // Extras (trailers, deleted scenes, etc.)
+  Extras?: {
+    size: number;
+    Metadata: PlexMediaItem[];
+  };
 }
 
 export interface PlexMedia {

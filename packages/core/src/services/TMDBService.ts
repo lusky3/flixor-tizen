@@ -23,9 +23,9 @@ const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p';
  * Service for TMDB API (The Movie Database)
  */
 export class TMDBService {
-  private apiKey: string;
-  private cache: ICache;
-  private language: string;
+  private readonly apiKey: string;
+  private readonly cache: ICache;
+  private readonly language: string;
 
   constructor(options: { apiKey: string; cache: ICache; language?: string }) {
     this.apiKey = options.apiKey;
@@ -472,6 +472,17 @@ export class TMDBService {
   async searchMulti(query: string, page: number = 1): Promise<TMDBResultsResponse<TMDBMedia>> {
     return this.get<TMDBResultsResponse<TMDBMedia>>(
       '/search/multi',
+      { query, page: String(page) },
+      CacheTTL.SHORT
+    );
+  }
+
+  /**
+   * Search for people
+   */
+  async searchPerson(query: string, page: number = 1): Promise<TMDBResultsResponse<TMDBPerson>> {
+    return this.get<TMDBResultsResponse<TMDBPerson>>(
+      '/search/person',
       { query, page: String(page) },
       CacheTTL.SHORT
     );
