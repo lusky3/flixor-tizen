@@ -207,8 +207,9 @@ body {
   color: black;
 }
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.15);
-  color: white;
+  background: #2a2a2a;
+  color: #ffffff;
+  border: 1px solid #444444;
   backdrop-filter: blur(20px);
 }
 
@@ -355,9 +356,9 @@ body {
 }
 
 .btn-back {
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  color: white;
+  background: #2a2a2a;
+  border: 1px solid #444444;
+  color: #ffffff;
   padding: 10px 20px;
   border-radius: 8px;
   margin-bottom: 20px;
@@ -486,8 +487,8 @@ body {
   align-items: center;
   justify-content: center;
   font-size: 50px;
-  color: rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .cast-name {
@@ -519,7 +520,7 @@ body {
 .season-item {
   background: rgba(255, 255, 255, 0.05);
   border: none;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.7);
   padding: 12px 25px;
   border-radius: 30px;
   font-size: 20px;
@@ -632,7 +633,7 @@ body {
 .track-group h3 {
   font-size: 24px;
   margin-bottom: 15px;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .track-btn {
@@ -815,9 +816,9 @@ body {
   position: absolute;
   right: 60px;
   bottom: 200px;
-  background: rgba(255, 255, 255, 0.15);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  color: white;
+  background: #111111;
+  border: 2px solid #ffffff;
+  color: #ffffff;
   padding: 15px 40px;
   border-radius: 4px;
   font-size: 24px;
