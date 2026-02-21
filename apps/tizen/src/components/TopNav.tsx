@@ -24,6 +24,13 @@ export function TopNav() {
           My List
         </button>
         <button
+          className={`nav-item ${currentPath === "/new-popular" ? "active" : ""}`}
+          tabIndex={0}
+          onClick={() => navigate("/new-popular")}
+        >
+          New & Popular
+        </button>
+        <button
           className={`nav-item ${currentPath.includes("/library/movie") ? "active" : ""}`}
           tabIndex={0}
           onClick={() => navigate("/library/movie")}

@@ -13,6 +13,7 @@ import { Login } from "./pages/Login";
 import { SettingsPage } from "./pages/Settings";
 import { MyListPage } from "./pages/MyList";
 import { PersonPage } from "./pages/Person";
+import { NewPopularPage } from "./pages/NewPopular";
 
 function App() {
   useTizenRemote();
@@ -63,6 +64,7 @@ function App() {
       <Route path="/mylist" element={<MyListPage />} />
       <Route path="/person/:id" element={<PersonPage />} />
       <Route path="/person" element={<PersonPage />} />
+      <Route path="/new-popular" element={<NewPopularPage />} />
       <Route path="/settings" element={<SettingsPage />} />
     </Routes>
   );
