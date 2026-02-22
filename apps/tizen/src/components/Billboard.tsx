@@ -5,6 +5,7 @@
  */
 
 import { useFocusable } from "@noriginmedia/norigin-spatial-navigation";
+import ContentRatingBadge from "./ContentRatingBadge";
 import { SmartImage } from "./SmartImage";
 
 export interface BillboardProps {
@@ -142,20 +143,7 @@ export function Billboard({
           </button>
 
           {contentRating && (
-            <span
-              style={{
-                display: "inline-block",
-                padding: "6px 12px",
-                borderRadius: 6,
-                background: "rgba(255,255,255,0.15)",
-                color: "#fff",
-                fontSize: 13,
-                fontWeight: 600,
-                letterSpacing: "0.03em",
-              }}
-            >
-              {contentRating}
-            </span>
+            <ContentRatingBadge rating={contentRating} size="md" />
           )}
         </div>
       </div>
