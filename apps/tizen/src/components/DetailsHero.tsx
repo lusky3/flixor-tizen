@@ -1,0 +1,100 @@
+import type { ReactNode } from 'react';
+import { SmartImage } from './SmartImage';
+
+export interface DetailsHeroProps {
+  title: string;
+  year?: string | number;
+  contentRating?: string;
+  duration?: number;
+  overview?: string;
+  tagline?: string;
+  backdropUrl?: string;
+  posterUrl?: string;
+  logoUrl?: string;
+  techBadges?: string[];
+  director?: string;
+  writers?: string[];
+  children?: ReactNode;
+}
+
+export function DetailsHero({
+  title,
+  year,
+  contentRating,
+  duration,
+  overview,
+  tagline,
+  backdropUrl,
+  posterUrl,
+  logoUrl,
+  techBadges = [],
+  director,
+  writers = [],
+  children,
+}: DetailsHeroProps) {
+  const formattedDuration = duration ? `${Math.round(duration / 60000)}m` : null;
+
+  return (
+    <div className="details-hero">
+      {backdropUrl && (
+        <div className="details-hero__backdrop">
+          <SmartImage src={backdropUrl} alt="" className="details-hero__backdrop-img" />
+          <div className="backdrop-overlay" />
+        </div>
+      )}
+
+      <div className="details-hero__content">
+        {posterUrl && (
+          <SmartImage
+            src={posterUrl}
+            alt={title}
+            kind="poster"
+            className="details-hero__poster"
+          />
+        )}
+
+        <div className="details-hero__info">
+          {logoUrl ? (
+            <img src={logoUrl} alt={title} style={{ maxWidth: 400, maxHeight: 120, objectFit: 'contain' }} />
+          ) : (
+            <h1 className="details-title">{title}</h1>
+          )}
+
+          {techBadges.length > 0 && (
+            <div className="tech-badges">
+              {techBadges.map((badge) => (
+                <span
+                  key={badge}
+                  className={`tech-badge ${badge.toLowerCase().replace(/\s/g, '-')}`}
+                >
+                  {badge}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="hero-meta">
+            {year && <span className="meta-badge">{year}</span>}
+            {contentRating && <span className="meta-badge">{contentRating}</span>}
+            {formattedDuration && <span className="meta-badge">{formattedDuration}</span>}
+          </div>
+
+          {tagline && <p className="details-tagline">&ldquo;{tagline}&rdquo;</p>}
+
+          {overview && <p className="details-summary">{overview}</p>}
+
+          {(director || writers.length > 0) && (
+            <div className="details-crew">
+              {director && <span className="crew-item">Director: {director}</span>}
+              {writers.length > 0 && (
+                <span className="crew-item">Writers: {writers.join(', ')}</span>
+              )}
+            </div>
+          )}
+
+          {children && <div className="hero-actions">{children}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}

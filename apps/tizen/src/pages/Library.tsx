@@ -1,9 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { flixor } from "../services/flixor";
+import { loadSettings } from "../services/settings";
 import type { PlexMediaItem } from "@flixor/core";
 import { TopNav } from "../components/TopNav";
-import { MediaCard } from "../components/MediaCard";
+import { PosterCard } from "../components/PosterCard";
+import { FilterBar, type FilterOption } from "../components/FilterBar";
+import { SkeletonRow } from "../components/SkeletonRow";
+import { VirtualGrid, type VirtualGridItem } from "../components/VirtualGrid";
 
 const PAGE_SIZE = 50;
 
@@ -30,7 +34,10 @@ export function LibraryPage() {
       setHasMore(true);
       try {
         const libs = await flixor.plexServer.getLibraries();
-        const targetLib = libs.find((l) => l.type === type);
+        const settings = loadSettings();
+        const disabledKeys = settings.catalogDisabledLibraries || [];
+        const enabledLibs = libs.filter((l) => !disabledKeys.includes(l.key));
+        const targetLib = enabledLibs.find((l) => l.type === type);
         if (targetLib) {
           libKeyRef.current = targetLib.key;
           const [content, genreList] = await Promise.all([
@@ -88,6 +95,30 @@ export function LibraryPage() {
     setFilteredItems(result);
   }, [searchQuery, selectedGenre, allItems]);
 
+  const genreFilterOptions: FilterOption[] = genres.map((g) => ({
+    id: g.title,
+    label: g.title,
+  }));
+
+  type LibraryGridItem = VirtualGridItem & { _item: PlexMediaItem };
+
+  const gridItems: LibraryGridItem[] = filteredItems.map((item) => ({
+    id: item.ratingKey,
+    _item: item,
+  }));
+
+  const isFiltering = !!(searchQuery || selectedGenre);
+
+  const renderCard = useCallback(
+    (gridItem: LibraryGridItem) => (
+      <PosterCard
+        item={gridItem._item}
+        onClick={() => navigate(`/details/${gridItem._item.ratingKey}`)}
+      />
+    ),
+    [navigate],
+  );
+
   return (
     <div className="tv-container pt-nav">
       <TopNav />
@@ -104,49 +135,32 @@ export function LibraryPage() {
           onChange={(e) => setSearchQuery(e.target.value)}
           autoFocus
         />
-        <div className="genre-pills">
-          <button
-            className={`genre-pill ${!selectedGenre ? "active" : ""}`}
-            onClick={() => setSelectedGenre(null)}
-          >
-            All
-          </button>
-          {genres.map((g) => (
-            <button
-              key={g.key}
-              className={`genre-pill ${selectedGenre === g.title ? "active" : ""}`}
-              onClick={() => setSelectedGenre(selectedGenre === g.title ? null : g.title)}
-            >
-              {g.title}
-            </button>
-          ))}
-        </div>
+        {genreFilterOptions.length > 0 && (
+          <FilterBar
+            options={genreFilterOptions}
+            activeId={selectedGenre}
+            onSelect={setSelectedGenre}
+          />
+        )}
       </div>
 
       {loading ? (
-        <div className="loading">Loading...</div>
+        <div style={{ padding: "0 80px" }}>
+          <SkeletonRow count={6} variant="poster" />
+          <SkeletonRow count={6} variant="poster" />
+        </div>
+      ) : filteredItems.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "60px", color: "rgba(255,255,255,0.4)", fontSize: "24px" }}>
+          No results found
+        </div>
       ) : (
-        <div className="tv-grid" style={{ padding: "0 80px 100px" }}>
-          {filteredItems.map((item) => (
-            <MediaCard
-              key={item.ratingKey}
-              item={item}
-              variant="poster"
-              onClick={() => navigate(`/details/${item.ratingKey}`)}
-            />
-          ))}
-          {filteredItems.length === 0 && !loading && (
-            <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "60px", color: "rgba(255,255,255,0.4)", fontSize: "24px" }}>
-              No results found
-            </div>
-          )}
-          {hasMore && !searchQuery && !selectedGenre && (
-            <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "30px" }}>
-              <button className="btn-secondary" onClick={loadMore} disabled={loadingMore}>
-                {loadingMore ? "Loading..." : "Load More"}
-              </button>
-            </div>
-          )}
+        <div style={{ padding: "0 80px 100px", flex: 1 }}>
+          <VirtualGrid<LibraryGridItem>
+            items={gridItems}
+            render={renderCard}
+            hasMore={!isFiltering && hasMore}
+            loadMore={!isFiltering ? loadMore : undefined}
+          />
         </div>
       )}
     </div>

@@ -5,6 +5,7 @@ target/
 .DS_Store
 .idea/
 .vscode/
+.kiro
 *.log
 .env
 *.local

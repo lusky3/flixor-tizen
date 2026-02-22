@@ -1,21 +1,27 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { flixor } from "../services/flixor";
 import { loadSettings } from "../services/settings";
+import * as tmdbService from "../services/tmdb";
+import * as traktService from "../services/trakt";
 import type { PlexMediaItem } from "@flixor/core";
 import { TopNav } from "../components/TopNav";
-import { MediaCard } from "../components/MediaCard";
+import { HeroCarousel } from "../components/HeroCarousel";
+import { ContentRow } from "../components/ContentRow";
+import { SkeletonRow } from "../components/SkeletonRow";
+import { SmartImage } from "../components/SmartImage";
+import { Billboard } from "../components/Billboard";
+import { UltraBlurBackground } from "../components/UltraBlurBackground";
+import { extractUltraBlurColors, type UltraBlurColors } from "../services/colorExtractor";
 import type { RowData } from "../types";
 
 export function Home() {
   const [heroItems, setHeroItems] = useState<PlexMediaItem[]>([]);
-  const [heroIndex, setHeroIndex] = useState(0);
-  const [heroLogo, setHeroLogo] = useState<string | null>(null);
   const [rows, setRows] = useState<RowData[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeBackdrop, setActiveBackdrop] = useState<string | null>(null);
+  const [ultraBlurColors, setUltraBlurColors] = useState<UltraBlurColors | null>(null);
   const navigate = useNavigate();
-  const heroPlayRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const fetchContinueWatching = async (newRows: RowData[]) => {
@@ -42,7 +48,7 @@ export function Home() {
       if (settings.showTrendingRows === false) return [];
       const candidates: PlexMediaItem[] = [];
       try {
-        const trendingResult = await flixor.tmdb.getTrendingMovies("week");
+        const trendingResult = await tmdbService.getTrending("movie", "week");
         if (trendingResult.results.length > 0) {
           const trendingItems: PlexMediaItem[] = trendingResult.results
             .slice(0, 15)
@@ -51,8 +57,8 @@ export function Home() {
                 ({
                   ratingKey: `tmdb-movie-${m.id}`,
                   title: (m.title || m.name) as string,
-                  thumb: flixor.tmdb.getImageUrl(m.poster_path as string, "w500"),
-                  art: flixor.tmdb.getImageUrl(m.backdrop_path as string, "original"),
+                  thumb: tmdbService.buildImageUrl(m.poster_path, "poster"),
+                  art: tmdbService.buildImageUrl(m.backdrop_path, "backdrop"),
                   year: ((m.release_date || "") as string).split("-")[0],
                   summary: m.overview as string,
                   duration: 0,
@@ -63,15 +69,15 @@ export function Home() {
           candidates.push(...trendingItems.slice(0, 5));
         }
 
-        const trendingTV = await flixor.tmdb.getTrendingTV("week");
+        const trendingTV = await tmdbService.getTrending("tv", "week");
         if (trendingTV.results.length > 0) {
           const tvItems: PlexMediaItem[] = trendingTV.results.slice(0, 15).map(
             (m: any) =>
               ({
                 ratingKey: `tmdb-tv-${m.id}`,
                 title: (m.name || m.title) as string,
-                thumb: flixor.tmdb.getImageUrl(m.poster_path as string, "w500"),
-                art: flixor.tmdb.getImageUrl(m.backdrop_path as string, "original"),
+                thumb: tmdbService.buildImageUrl(m.poster_path, "poster"),
+                art: tmdbService.buildImageUrl(m.backdrop_path, "backdrop"),
                 year: ((m.first_air_date || "") as string).split("-")[0],
                 summary: m.overview as string,
                 duration: 0,
@@ -89,11 +95,11 @@ export function Home() {
 
     const fetchTraktRows = async (newRows: RowData[]) => {
       const settings = loadSettings();
-      if (settings.showTraktRows === false || !flixor.trakt.isAuthenticated()) return;
+      if (settings.showTraktRows === false || !traktService.isAuthenticated()) return;
 
       try {
         // Trakt Watchlist
-        const watchlist = await flixor.trakt.getWatchlist();
+        const watchlist = await traktService.getWatchlist();
         if (watchlist.length > 0) {
           const wlItems: PlexMediaItem[] = watchlist.slice(0, 15).map((w: any) => {
             const media = w.movie || w.show;
@@ -108,7 +114,6 @@ export function Home() {
               guid: ids.tmdb ? `tmdb://${ids.tmdb}` : "",
             } as any;
           });
-          // Enrich with TMDB posters
           await enrichTraktItems(wlItems);
           if (wlItems.length > 0) {
             newRows.push({ title: "Trakt Watchlist", items: wlItems, variant: "poster" });
@@ -120,9 +125,9 @@ export function Home() {
 
       try {
         // Trakt Recommendations (movies)
-        const recs = await flixor.trakt.getRecommendedMovies(1, 15);
+        const recs = await traktService.getRecommendations("movies");
         if (recs.length > 0) {
-          const recItems: PlexMediaItem[] = recs.map((m: any) => ({
+          const recItems: PlexMediaItem[] = (recs as any[]).slice(0, 15).map((m: any) => ({
             ratingKey: `trakt-rec-${m.ids?.tmdb || m.ids?.trakt}`,
             title: m.title || "Unknown",
             thumb: "",
@@ -142,9 +147,9 @@ export function Home() {
 
       try {
         // Trakt Trending Movies
-        const traktTrending = await flixor.trakt.getTrendingMovies(1, 15);
+        const traktTrending = await traktService.getTrending("movies");
         if (traktTrending.length > 0) {
-          const items: PlexMediaItem[] = traktTrending.map((t: any) => {
+          const items: PlexMediaItem[] = (traktTrending as any[]).slice(0, 15).map((t: any) => {
             const m = t.movie || t;
             return {
               ratingKey: `trakt-trend-${m.ids?.tmdb || m.ids?.trakt}`,
@@ -173,13 +178,12 @@ export function Home() {
           const tmdbId = guid.replace("tmdb://", "");
           if (!tmdbId) return;
           try {
-            const details = await flixor.tmdb.getMovieDetails(Number(tmdbId)).catch(() =>
-              flixor.tmdb.getTVDetails(Number(tmdbId)),
-            );
+            const details = await tmdbService.getDetails(Number(tmdbId), "movie")
+              .then((d) => d || tmdbService.getDetails(Number(tmdbId), "tv"));
             if (details) {
               const d = details as any;
-              item.thumb = flixor.tmdb.getPosterUrl(d.poster_path, "w500");
-              item.art = flixor.tmdb.getBackdropUrl(d.backdrop_path, "original");
+              item.thumb = tmdbService.buildImageUrl(d.poster_path, "poster");
+              item.art = tmdbService.buildImageUrl(d.backdrop_path, "backdrop");
               item.summary = d.overview || "";
             }
           } catch { /* ignore */ }
@@ -190,6 +194,7 @@ export function Home() {
     const loadContent = async () => {
       try {
         if (!flixor.isPlexAuthenticated) return;
+        const settings = loadSettings();
 
         const newRows: RowData[] = [];
         const continueItems = await fetchContinueWatching(newRows);
@@ -197,64 +202,69 @@ export function Home() {
 
         const heroCandidates = [...continueItems, ...trendingCandidates];
         setHeroItems(heroCandidates);
-        if (heroCandidates.length > 0) updateHeroMetadata(heroCandidates[0]);
 
         const libraries = await flixor.plexServer.getLibraries();
         const movieLib = libraries.find((l) => l.type === "movie");
         const showLib = libraries.find((l) => l.type === "show");
 
-        if (movieLib) {
-          const recentMovies = await flixor.plexServer.getRecentlyAdded(movieLib.key);
-          if (recentMovies.length > 0) {
-            newRows.push({ title: "Recently Added Movies", items: recentMovies.slice(0, 15), variant: "poster" });
+        if (settings.showRecentlyAddedRows !== false) {
+          if (movieLib) {
+            const recentMovies = await flixor.plexServer.getRecentlyAdded(movieLib.key);
+            if (recentMovies.length > 0) {
+              newRows.push({ title: "Recently Added Movies", items: recentMovies.slice(0, 15), variant: "poster" });
+            }
+          }
+
+          if (showLib) {
+            const recentShows = await flixor.plexServer.getRecentlyAdded(showLib.key);
+            if (recentShows.length > 0) {
+              newRows.push({ title: "Recently Added Shows", items: recentShows.slice(0, 15), variant: "poster" });
+            }
           }
         }
 
-        if (showLib) {
-          const recentShows = await flixor.plexServer.getRecentlyAdded(showLib.key);
-          if (recentShows.length > 0) {
-            newRows.push({ title: "Recently Added Shows", items: recentShows.slice(0, 15), variant: "poster" });
+        if (settings.showCollectionsRow !== false) {
+          try {
+            const collections = await flixor.plexServer.getAllCollections();
+            if (collections.length > 0) {
+              newRows.push({ title: "Collections", items: collections.slice(0, 15), variant: "poster" });
+            }
+          } catch (e) {
+            console.error("Failed to load collections", e);
           }
-        }
-
-        try {
-          const collections = await flixor.plexServer.getAllCollections();
-          if (collections.length > 0) {
-            newRows.push({ title: "Collections", items: collections.slice(0, 15), variant: "poster" });
-          }
-        } catch (e) {
-          console.error("Failed to load collections", e);
         }
 
         // Trakt rows
         await fetchTraktRows(newRows);
 
         // Genre-based rows from Plex libraries
-        const genreRowDefs: { label: string; type: "movie" | "show"; genre: string }[] = [
-          { label: "TV Shows - Children", type: "show", genre: "Children" },
-          { label: "Movies - Documentary", type: "movie", genre: "Documentary" },
-          { label: "Movies - Drama", type: "movie", genre: "Drama" },
-          { label: "TV Shows - Reality", type: "show", genre: "Reality" },
-          { label: "Movies - Animation", type: "movie", genre: "Animation" },
-          { label: "Movies - History", type: "movie", genre: "History" },
-        ];
-        try {
-          for (const gr of genreRowDefs) {
-            const lib = libraries.find((l) => l.type === gr.type);
-            if (!lib) continue;
-            try {
-              const genreList = await flixor.plexServer.getGenres(lib.key);
-              const genreMatch = genreList.find(
-                (g) => g.title.toLowerCase() === gr.genre.toLowerCase(),
-              );
-              if (!genreMatch) continue;
-              const genreItems = await flixor.plexServer.getItemsByGenre(lib.key, genreMatch.key, { size: 12 });
-              if (genreItems.length > 0) {
-                newRows.push({ title: gr.label, items: genreItems.slice(0, 12), variant: "poster" });
-              }
-            } catch { /* skip genre */ }
-          }
-        } catch { /* skip all genre rows */ }
+        if (settings.showGenreRows !== false) {
+          const genreRowDefs: { label: string; type: "movie" | "show"; genre: string }[] = [
+            { label: "TV Shows - Children", type: "show", genre: "Children" },
+            { label: "Movies - Documentary", type: "movie", genre: "Documentary" },
+            { label: "Movies - Drama", type: "movie", genre: "Drama" },
+            { label: "TV Shows - Reality", type: "show", genre: "Reality" },
+            { label: "Movies - Animation", type: "movie", genre: "Animation" },
+            { label: "Movies - History", type: "movie", genre: "History" },
+          ];
+          try {
+            for (const gr of genreRowDefs) {
+              const lib = libraries.find((l) => l.type === gr.type);
+              if (!lib) continue;
+              try {
+                const genreList = await flixor.plexServer.getGenres(lib.key);
+                const genreMatch = genreList.find(
+                  (g) => g.title.toLowerCase() === gr.genre.toLowerCase(),
+                );
+                if (!genreMatch) continue;
+                const genreItems = await flixor.plexServer.getItemsByGenre(lib.key, genreMatch.key, { size: 12 });
+                if (genreItems.length > 0) {
+                  newRows.push({ title: gr.label, items: genreItems.slice(0, 12), variant: "poster" });
+                }
+              } catch { /* skip genre */ }
+            }
+          } catch { /* skip all genre rows */ }
+        }
 
         setRows(newRows);
       } catch (err) {
@@ -267,61 +277,23 @@ export function Home() {
     loadContent();
   }, [navigate]);
 
-  const updateHeroMetadata = async (item: PlexMediaItem) => {
-    const focused = document.activeElement;
-    const isInHero = focused?.closest(".hero-section");
-    const isNothingFocused = !focused || focused === document.body;
+  const handleItemClick = useCallback(
+    (item: PlexMediaItem) => navigate(`/details/${item.ratingKey}`),
+    [navigate],
+  );
 
-    if (isInHero || isNothingFocused) {
-      setActiveBackdrop(flixor.plexServer.getImageUrl(item.art || item.thumb));
-    }
-    setHeroLogo(null);
-    try {
-      const guid = item.guid || "";
-      const tmdbIdResult = await flixor.tmdb.findByImdbId(guid);
-      const tid = tmdbIdResult.movie_results[0]?.id || tmdbIdResult.tv_results[0]?.id;
-      if (tid) {
-        const imgs = tmdbIdResult.movie_results[0]
-          ? await flixor.tmdb.getMovieImages(tid)
-          : await flixor.tmdb.getTVImages(tid);
-        const logos = imgs.logos || [];
-        const logo = logos.find((l: any) => l.iso_639_1 === "en") || logos[0];
-        if (logo) setHeroLogo(flixor.tmdb.getImageUrl(logo.file_path as string, "w500"));
-      }
-    } catch { /* ignore */ }
-  };
-
-  useEffect(() => {
-    if (heroItems.length > 1 && !loading) {
-      const timer = globalThis.setInterval(() => {
-        setHeroIndex((prev) => {
-          const next = (prev + 1) % heroItems.length;
-          updateHeroMetadata(heroItems[next]);
-          return next;
+  const handleItemFocus = useCallback(
+    (item: PlexMediaItem) => {
+      const bg = flixor.plexServer.getImageUrl(item.art || item.thumb);
+      if (bg) {
+        setActiveBackdrop(bg);
+        extractUltraBlurColors(bg).then((colors) => {
+          if (colors) setUltraBlurColors(colors);
         });
-      }, 15000);
-      return () => globalThis.clearInterval(timer);
-    }
-  }, [heroItems, loading]);
-
-  const heroItem = heroItems[heroIndex];
-
-  useEffect(() => {
-    if (!loading && heroItems.length > 0 && heroPlayRef.current) {
-      if (!document.activeElement || document.activeElement === document.body) {
-        heroPlayRef.current.focus();
       }
-    }
-  }, [loading, heroItems.length]);
-
-  if (loading) {
-    return (
-      <div className="tv-container" style={{ justifyContent: "center", alignItems: "center" }}>
-        <h1 className="logo">FLIXOR</h1>
-        <div className="loading-spinner"></div>
-      </div>
-    );
-  }
+    },
+    [],
+  );
 
   const handleFocus = (e: React.FocusEvent) => {
     const target = e.target as HTMLElement;
@@ -333,86 +305,82 @@ export function Home() {
     target.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
   };
 
+  if (loading) {
+    return (
+      <div className="tv-container">
+        <TopNav />
+        <div className="hero-section">
+          <div className="skeleton-hero shimmer" style={{ height: 400 }} />
+        </div>
+        <SkeletonRow count={6} variant="poster" />
+        <SkeletonRow count={6} variant="poster" />
+        <SkeletonRow count={6} variant="poster" />
+      </div>
+    );
+  }
+
+  /** Map row titles to seeAllLink paths where applicable */
+  const getSeeAllLink = (title: string): string | undefined => {
+    const linkMap: Record<string, string> = {
+      "Popular Movies": "/browse/trending-movies",
+      "Trending Shows": "/browse/trending-shows",
+      "Recently Added Movies": "/browse/recently-added-movies",
+      "Recently Added Shows": "/browse/recently-added-shows",
+      "Collections": "/browse/collections",
+      "Trakt Watchlist": "/browse/trakt-watchlist",
+      "Recommended for You": "/browse/trakt-recommended",
+      "Trending on Trakt": "/browse/trakt-trending",
+    };
+    return linkMap[title];
+  };
+
   return (
     <div className="tv-container" onFocus={handleFocus}>
-      <div
-        className="backdrop-layer"
-        style={{ backgroundImage: activeBackdrop ? `url(${activeBackdrop})` : "none" }}
-      >
-        <div className="backdrop-overlay-v" />
-        <div className="backdrop-overlay-h" />
-      </div>
+      {activeBackdrop ? (
+        <SmartImage
+          src={activeBackdrop}
+          alt=""
+          className="backdrop-layer-img"
+          kind="backdrop"
+        />
+      ) : (
+        <div className="backdrop-layer" />
+      )}
+      <div className="backdrop-overlay-v" />
+      <div className="backdrop-overlay-h" />
+
+      {activeBackdrop && <UltraBlurBackground src={activeBackdrop} colors={ultraBlurColors} />}
 
       <TopNav />
 
-      {heroItem && (
-        <section className="hero-section">
-          <div className="hero-content">
-            {heroLogo ? (
-              <img src={heroLogo} className="hero-logo" alt={heroItem.title} />
-            ) : (
-              <h1 className="hero-title">{heroItem.title}</h1>
-            )}
+      <HeroCarousel items={heroItems} onBackdropChange={setActiveBackdrop} />
 
-            <div className="hero-meta">
-              <span className="meta-badge">{heroItem.year}</span>
-              <span className="meta-badge">{heroItem.contentRating || "PG-13"}</span>
-              {heroItem.duration ? (
-                <span className="meta-badge">{Math.round(heroItem.duration / 60000)}m</span>
-              ) : null}
-            </div>
-
-            <p className="hero-overview">
-              {heroItem.summary || "No overview available for this title."}
-            </p>
-
-            <div className="hero-actions">
-              <button
-                ref={heroPlayRef}
-                className="btn-primary"
-                onFocus={() => {
-                  if (heroItem) setActiveBackdrop(flixor.plexServer.getImageUrl(heroItem.art || heroItem.thumb));
-                }}
-                onClick={() => {
-                  const part = heroItem.Media?.[0]?.Part?.[0];
-                  if (part) navigate(`/player/${heroItem.ratingKey}`);
-                  else alert("No playable media found.");
-                }}
-              >
-                <span className="icon">▶</span> Play
-              </button>
-              <button
-                className="btn-secondary"
-                onFocus={() => {
-                  if (heroItem) setActiveBackdrop(flixor.plexServer.getImageUrl(heroItem.art || heroItem.thumb));
-                }}
-                onClick={() => navigate(`/details/${heroItem.ratingKey}`)}
-              >
-                More Info
-              </button>
-            </div>
-          </div>
-        </section>
-      )}
+      {heroItems.length > 0 && (() => {
+        const featured = heroItems[0];
+        const backdropUrl = featured.art?.startsWith("http")
+          ? featured.art
+          : flixor.plexServer.getImageUrl(featured.art || featured.thumb);
+        return (
+          <Billboard
+            title={featured.title}
+            backdropUrl={backdropUrl || undefined}
+            overview={featured.summary}
+            contentRating={featured.contentRating}
+            onPlay={() => navigate(`/details/${featured.ratingKey}`)}
+          />
+        );
+      })()}
 
       {rows.map((row) => (
-        <section key={row.title} className="tv-row-section">
-          <h2 className="row-title">{row.title}</h2>
-          <div className="tv-row">
-            {row.items.map((item) => (
-              <MediaCard
-                key={item.ratingKey}
-                item={item}
-                variant={row.variant}
-                onFocus={() => {
-                  const bg = flixor.plexServer.getImageUrl(item.art || item.thumb);
-                  if (bg) setActiveBackdrop(bg);
-                }}
-                onClick={() => navigate(`/details/${item.ratingKey}`)}
-              />
-            ))}
-          </div>
-        </section>
+        <ContentRow
+          key={row.title}
+          title={row.title}
+          items={row.items}
+          variant={row.variant}
+          seeAllLink={getSeeAllLink(row.title)}
+          onItemClick={handleItemClick}
+          onItemFocus={handleItemFocus}
+        />
       ))}
     </div>
   );

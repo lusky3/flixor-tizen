@@ -2,34 +2,27 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { flixor } from "../services/flixor";
 import { loadSettings } from "../services/settings";
-import type { PlexMediaItem, TMDBMedia } from "@flixor/core";
+import { getTrending as getTmdbTrending, search as tmdbSearch, buildImageUrl } from "../services/tmdb";
+import * as traktService from "../services/trakt";
+import type { SearchResult } from "../types";
 import { TopNav } from "../components/TopNav";
-import { MediaCard } from "../components/MediaCard";
-
-interface SearchResult {
-  id: string;
-  title: string;
-  type: "movie" | "tv";
-  image?: string;
-  year?: string;
-  available: boolean;
-  plexItem?: PlexMediaItem;
-}
+import { SearchInput } from "../components/SearchInput";
+import { SearchResults } from "../components/SearchResults";
 
 export function SearchPage() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [trending, setTrending] = useState<SearchResult[]>([]);
+  const [traktPopular, setTraktPopular] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Load trending on mount
   useEffect(() => {
     const loadTrending = async () => {
       try {
         const [movies, shows] = await Promise.all([
-          flixor.tmdb.getTrendingMovies("week"),
-          flixor.tmdb.getTrendingTV("week"),
+          getTmdbTrending("movie", "week"),
+          getTmdbTrending("tv", "week"),
         ]);
         const items: SearchResult[] = [];
         const movieList = movies.results.slice(0, 6);
@@ -41,7 +34,7 @@ export function SearchPage() {
               id: `tmdb-movie-${m.id}`,
               title: m.title || m.name,
               type: "movie",
-              image: flixor.tmdb.getBackdropUrl(m.backdrop_path, "w780"),
+              image: buildImageUrl(m.backdrop_path, "backdrop"),
               year: (m.release_date || "").slice(0, 4),
               available: false,
             });
@@ -52,7 +45,7 @@ export function SearchPage() {
               id: `tmdb-tv-${s.id}`,
               title: s.name || s.title,
               type: "tv",
-              image: flixor.tmdb.getBackdropUrl(s.backdrop_path, "w780"),
+              image: buildImageUrl(s.backdrop_path, "backdrop"),
               year: (s.first_air_date || "").slice(0, 4),
               available: false,
             });
@@ -64,6 +57,46 @@ export function SearchPage() {
       }
     };
     loadTrending();
+
+    // Fetch Trakt popular when authenticated
+    const loadTraktPopular = async () => {
+      if (!traktService.isAuthenticated()) return;
+      try {
+        const [popularMovies, popularShows] = await Promise.all([
+          traktService.getTrending("movies"),
+          traktService.getTrending("shows"),
+        ]);
+        const items: SearchResult[] = [];
+        for (const entry of (popularMovies as any[]).slice(0, 6)) {
+          const m = entry.movie || entry;
+          const tmdbId = m.ids?.tmdb;
+          items.push({
+            id: `trakt-pop-movie-${tmdbId || m.ids?.trakt}`,
+            title: m.title || "Unknown",
+            type: "movie",
+            image: "",
+            year: m.year ? String(m.year) : undefined,
+            available: false,
+          });
+        }
+        for (const entry of (popularShows as any[]).slice(0, 6)) {
+          const s = entry.show || entry;
+          const tmdbId = s.ids?.tmdb;
+          items.push({
+            id: `trakt-pop-show-${tmdbId || s.ids?.trakt}`,
+            title: s.title || "Unknown",
+            type: "tv",
+            image: "",
+            year: s.year ? String(s.year) : undefined,
+            available: false,
+          });
+        }
+        setTraktPopular(items.slice(0, 12));
+      } catch (err) {
+        console.error("Failed to load Trakt popular:", err);
+      }
+    };
+    loadTraktPopular();
   }, []);
 
   const handleSearch = async (val: string) => {
@@ -77,7 +110,6 @@ export function SearchPage() {
     try {
       const searchResults: SearchResult[] = [];
 
-      // Plex search
       const plexRes = await flixor.plexServer.search(val);
       plexRes
         .filter((item) => item.type === "movie" || item.type === "show")
@@ -94,11 +126,10 @@ export function SearchPage() {
           });
         });
 
-      // TMDB search (if not in discovery-disabled mode)
       const settings = loadSettings();
       if (!settings.discoveryDisabled && settings.includeTmdbInSearch !== false) {
         try {
-          const tmdbRes = await flixor.tmdb.searchMulti(val);
+          const tmdbRes = await tmdbSearch(val, "multi");
           tmdbRes.results
             .filter(
               (r: any) => r.media_type === "movie" || r.media_type === "tv",
@@ -114,7 +145,7 @@ export function SearchPage() {
                   id: `tmdb-${item.media_type}-${item.id}`,
                   title,
                   type: item.media_type as "movie" | "tv",
-                  image: flixor.tmdb.getPosterUrl(item.poster_path, "w500"),
+                  image: buildImageUrl(item.poster_path, "poster"),
                   year: (item.release_date || item.first_air_date || "").slice(0, 4),
                   available: false,
                 });
@@ -133,85 +164,44 @@ export function SearchPage() {
     }
   };
 
-  const handleResultClick = (result: SearchResult) => {
+  const handleResultSelect = (result: SearchResult) => {
     if (result.plexItem) {
       navigate(`/details/${result.plexItem.ratingKey}`);
     } else {
-      // For TMDB-only results, navigate to details with tmdb prefix
       navigate(`/details/${result.id}`);
     }
   };
 
   const showTrending = query.length < 2 && trending.length > 0;
+  const showTraktPopular = query.length < 2 && traktPopular.length > 0;
 
   return (
     <div className="tv-container pt-nav">
       <TopNav />
-      <div className="search-container">
-        <input
-          type="text"
-          className="search-input"
-          placeholder="Search movies and shows..."
-          value={query}
-          onChange={(e) => handleSearch(e.target.value)}
-          autoFocus
-        />
-      </div>
-
+      <SearchInput value={query} onChange={handleSearch} />
       <div className="search-results">
-        {loading && <div className="loading">Searching...</div>}
-
         {showTrending && (
-          <div className="trending-section">
-            <h2 className="row-title" style={{ padding: "0 80px" }}>
-              Recommended
-            </h2>
-            <div className="tv-grid" style={{ padding: "20px 80px" }}>
-              {trending.map((item) => (
-                <button
-                  key={item.id}
-                  className="trending-card"
-                  onClick={() => handleResultClick(item)}
-                >
-                  {item.image && (
-                    <img src={item.image} alt={item.title} className="trending-img" />
-                  )}
-                  <div className="trending-info">
-                    <span className="trending-title">{item.title}</span>
-                    <span className="trending-meta">
-                      {item.year} · {item.type === "movie" ? "Movie" : "TV Show"}
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+          <SearchResults
+            results={trending}
+            onSelect={handleResultSelect}
+            title="Trending"
+            variant="trending"
+          />
         )}
-
-        {!showTrending && (
-          <div className="tv-grid" style={{ padding: "20px 80px" }}>
-            {results.map((result) => (
-              <button
-                key={result.id}
-                className="search-result-card"
-                onClick={() => handleResultClick(result)}
-              >
-                {result.image && (
-                  <img src={result.image} alt={result.title} className="card-img" />
-                )}
-                <div className="search-result-info">
-                  <span className="search-result-title">{result.title}</span>
-                  <span className="search-result-meta">
-                    {result.year}
-                    {!result.available && " · TMDB"}
-                  </span>
-                </div>
-                {result.available && (
-                  <span className="availability-badge available">In Library</span>
-                )}
-              </button>
-            ))}
-          </div>
+        {showTraktPopular && (
+          <SearchResults
+            results={traktPopular}
+            onSelect={handleResultSelect}
+            title="Popular on Trakt"
+            variant="trending"
+          />
+        )}
+        {query.length >= 2 && (
+          <SearchResults
+            results={results}
+            onSelect={handleResultSelect}
+            loading={loading}
+          />
         )}
       </div>
     </div>

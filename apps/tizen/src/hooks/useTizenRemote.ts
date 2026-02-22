@@ -17,13 +17,13 @@ export function useTizenRemote() {
             }
         };
 
+        // Register Tizen TV input device keys
         if (tizen?.tvinputdevice) {
             try {
                 const keys = ['Return', 'Exit', 'Left', 'Up', 'Right', 'Down', 'Enter', 'Menu', 'MediaPlayPause'];
                 keys.forEach(key => {
                     try {
                         tizen.tvinputdevice.registerKey(key);
-                        console.log(`[TizenRemote] Registered key: ${key}`);
                     } catch {
                         console.warn(`[TizenRemote] Could not register key: ${key}`);
                     }
@@ -35,59 +35,13 @@ export function useTizenRemote() {
 
         const handleTizenKeys = (e: KeyboardEvent) => {
             const now = Date.now();
-            if (now - lastKeyTime < 150) return; // Prevent double-triggering
+            if (now - lastKeyTime < 150) return;
             lastKeyTime = now;
 
             const keyCode = e.keyCode || e.which;
             updateDebug(`Key: ${e.key} | Code: ${keyCode}`);
-            console.log(`[TizenRemote] ${e.type} - Key: ${e.key}, Code: ${keyCode}`);
 
-            // Manual Focus Mover
-            const focusableElements = Array.from(document.querySelectorAll('button, [tabindex="0"]')) as HTMLElement[];
-            const current = document.activeElement as HTMLElement;
-            const currentIndex = focusableElements.indexOf(current);
-
-            if (e.key === 'ArrowRight' || e.key === 'Right') {
-                const next = focusableElements[currentIndex + 1];
-                if (next) {
-                    e.preventDefault();
-                    next.focus();
-                }
-            } else if (e.key === 'ArrowLeft' || e.key === 'Left') {
-                const prev = focusableElements[currentIndex - 1];
-                if (prev) {
-                    e.preventDefault();
-                    prev.focus();
-                }
-            } else if (e.key === 'ArrowDown' || e.key === 'Down') {
-                const currentRect = current?.getBoundingClientRect();
-                if (currentRect) {
-                    const below = focusableElements.find(el => {
-                        const rect = el.getBoundingClientRect();
-                        return rect.top > currentRect.bottom && Math.abs(rect.left - currentRect.left) < 300;
-                    });
-                    if (below) {
-                        e.preventDefault();
-                        below.focus();
-                    }
-                }
-            } else if (e.key === 'ArrowUp' || e.key === 'Up') {
-                 const currentRect = current?.getBoundingClientRect();
-                 if (currentRect) {
-                     // Find the closest element above
-                     const above = focusableElements.filter(el => {
-                         const rect = el.getBoundingClientRect();
-                         return rect.bottom < currentRect.top && Math.abs(rect.left - currentRect.left) < 300;
-                     }).sort((a, b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom)[0];
-                     
-                     if (above) {
-                         e.preventDefault();
-                         above.focus();
-                     }
-                 }
-            }
-
-            // Return/Back
+            // Return/Back key handling
             if (keyCode === 10009 || e.key === 'Backspace' || e.key === 'Escape') {
                 if (location.pathname !== '/' && location.pathname !== '/login') {
                     e.preventDefault();
@@ -98,19 +52,53 @@ export function useTizenRemote() {
                     } catch { /* ignore */ }
                 }
             }
+
+            // MediaPlayPause key handling
+            if (keyCode === 10252 || e.key === 'MediaPlayPause') {
+                e.preventDefault();
+                const video = document.querySelector('video');
+                if (video) {
+                    if (video.paused) {
+                        video.play().catch(() => { /* ignore autoplay errors */ });
+                    } else {
+                        video.pause();
+                    }
+                }
+            }
         };
 
+        // Focus debugging
         const handleFocusIn = (e: FocusEvent) => {
             const target = e.target as HTMLElement;
             console.log('[TizenRemote] Focus GAINED:', target.tagName, target.className);
         };
 
+        // Tizen lifecycle events — pause/resume video on visibility change
+        const handleVisibilityChange = () => {
+            const video = document.querySelector('video');
+            if (!video) return;
+
+            if (document.hidden) {
+                if (!video.paused) {
+                    video.pause();
+                    video.dataset.wasPlaying = 'true';
+                }
+            } else {
+                if (video.dataset.wasPlaying === 'true') {
+                    video.play().catch(() => { /* ignore autoplay errors */ });
+                    delete video.dataset.wasPlaying;
+                }
+            }
+        };
+
         globalThis.addEventListener('keydown', handleTizenKeys);
         globalThis.addEventListener('focusin', handleFocusIn);
-        
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
         return () => {
             globalThis.removeEventListener('keydown', handleTizenKeys);
             globalThis.removeEventListener('focusin', handleFocusIn);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [navigate, location.pathname]);
 }

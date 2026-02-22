@@ -1,6 +1,10 @@
 import { loadSettings } from "./settings";
+import { cacheService } from "./cache";
 
-const CACHE_TTL = 5 * 60 * 1000;
+// Cache TTL (ms)
+const TTL = {
+  STATUS: 5 * 60 * 1000, // 5 min
+} as const;
 
 export type OverseerrStatus =
   | "not_requested"
@@ -31,13 +35,21 @@ const MediaInfoStatus = {
   PARTIALLY_AVAILABLE: 4, AVAILABLE: 5,
 };
 
-interface CacheEntry { status: OverseerrMediaStatus; timestamp: number; }
-const statusCache = new Map<string, CacheEntry>();
+/** Helper to build cache keys */
+function key(...parts: (string | number)[]): string {
+  return `overseerr:${parts.join(":")}`;
+}
 
 function normalizeUrl(url: string): string {
   return url.replace(/\/+$/, "").replace(/\/api\/v1$/, "");
 }
 
+/**
+ * Overseerr uses a direct fetch because @flixor/core does not expose
+ * an Overseerr API wrapper. Overseerr is a self-hosted media request
+ * manager with its own REST API that requires user-provided server URL
+ * and API key, which is specific to the Tizen/web integration.
+ */
 async function fetchOverseerr(
   url: string, apiKey: string, endpoint: string, options: RequestInit = {},
 ): Promise<Response> {
@@ -82,9 +94,9 @@ export async function getOverseerrMediaStatus(
   if (!settings.overseerrEnabled || !settings.overseerrUrl || !settings.overseerrApiKey)
     return null;
 
-  const cacheKey = `${mediaType}:${tmdbId}`;
-  const cached = statusCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) return cached.status;
+  const cacheKey = key("status", mediaType, tmdbId);
+  const cached = cacheService.get<OverseerrMediaStatus>(cacheKey);
+  if (cached !== null) return cached;
 
   try {
     const endpoint = mediaType === "movie" ? `/movie/${tmdbId}` : `/tv/${tmdbId}`;
@@ -95,7 +107,7 @@ export async function getOverseerrMediaStatus(
     if (!response.ok) {
       if (response.status === 404) {
         const status: OverseerrMediaStatus = { status: "not_requested", canRequest: true };
-        statusCache.set(cacheKey, { status, timestamp: Date.now() });
+        cacheService.set(cacheKey, status, TTL.STATUS);
         return status;
       }
       return null;
@@ -103,7 +115,7 @@ export async function getOverseerrMediaStatus(
 
     const data = await response.json();
     const status = determineStatus(data);
-    statusCache.set(cacheKey, { status, timestamp: Date.now() });
+    cacheService.set(cacheKey, status, TTL.STATUS);
     return status;
   } catch {
     return null;
@@ -147,7 +159,8 @@ export async function requestMedia(
     }
 
     const data = await response.json();
-    statusCache.delete(`${mediaType}:${tmdbId}`);
+    // Invalidate cached status after a successful request
+    cacheService.invalidate(key("status", mediaType, tmdbId));
     return { success: true, requestId: data.id, status: "pending" };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "Unknown error" };

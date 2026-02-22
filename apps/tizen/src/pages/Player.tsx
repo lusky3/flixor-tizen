@@ -1,7 +1,31 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { flixor } from "../services/flixor";
 import { loadSettings, saveSettings } from "../services/settings";
+import { StatsHUD } from "../components/StatsHUD";
+import { TrackPicker } from "../components/TrackPicker";
+import { VersionPickerModal } from "../components/VersionPickerModal";
+import { NextEpisodeCountdown } from "../components/NextEpisodeCountdown";
+import { SeekSlider } from "../components/SeekSlider";
+import { TraktScrobbler } from "../services/traktScrobbler";
+import {
+  decideStream,
+  getQualityOptions,
+  getAudioOptions,
+  getSubtitleOptions,
+  type StreamDecisionInput,
+} from "../services/streamDecision";
+import {
+  startTranscode,
+  stopActiveSession,
+  type TranscodeSession,
+} from "../services/transcode";
+import {
+  isHlsStream,
+  createHlsPlayer,
+  destroyHlsPlayer,
+} from "../utils/streaming";
+import type Hls from "hls.js";
 import type { PlexMediaItem, PlexMarker, PlexStream } from "@flixor/core";
 
 export function PlayerPage() {
@@ -16,63 +40,128 @@ export function PlayerPage() {
   const [selectedSub, setSelectedSub] = useState<number | null>(null);
   const [selectedMedia, setSelectedMedia] = useState(0);
   const [quality, setQuality] = useState(() => loadSettings().preferredQuality || "original");
-  const [resolution, setResolution] = useState(() => loadSettings().preferredResolution || "source");
   const [nextEpisode, setNextEpisode] = useState<PlexMediaItem | null>(null);
   const [showNextOverlay, setShowNextOverlay] = useState(false);
-  const [nextCountdown, setNextCountdown] = useState(10);
+  const [showStatsHud, setShowStatsHud] = useState(() => loadSettings().statsHudEnabled ?? false);
+
+  // Seek slider state
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  // Track picker modal state
+  const [showAudioPicker, setShowAudioPicker] = useState(false);
+  const [showSubPicker, setShowSubPicker] = useState(false);
+  const [showVersionPicker, setShowVersionPicker] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const navigate = useNavigate();
   const controlsTimeout = useRef<number | null>(null);
-  const nextTimerRef = useRef<number | null>(null);
   const resumeApplied = useRef(false);
+  const lastInfoKeyTime = useRef<number>(0);
+  const hlsRef = useRef<Hls | null>(null);
+  const transcodeSessionRef = useRef<TranscodeSession | null>(null);
 
-  const qualityOptions = useMemo(() => [
-    { label: "Original", value: "original" },
-    { label: "1 Mbps", value: "1000" },
-    { label: "2 Mbps", value: "2000" },
-    { label: "4 Mbps", value: "4000" },
-    { label: "8 Mbps", value: "8000" },
-    { label: "12 Mbps", value: "12000" },
-    { label: "20 Mbps", value: "20000" },
-  ], []);
+  // Toggle StatsHUD on double-press of Info/Menu key (keyCode 457 = Info on Tizen)
+  const handleStatsToggle = useCallback((e: KeyboardEvent) => {
+    if (e.keyCode === 457 || e.key === "ContextMenu" || e.key === "Info") {
+      const now = Date.now();
+      if (now - lastInfoKeyTime.current < 500) {
+        setShowStatsHud((prev) => !prev);
+        lastInfoKeyTime.current = 0;
+      } else {
+        lastInfoKeyTime.current = now;
+      }
+    }
+  }, []);
 
-  const resolutionOptions = useMemo(() => [
-    { label: "Source", value: "source" },
-    { label: "480p", value: "480" },
-    { label: "720p", value: "720" },
-    { label: "1080p", value: "1080" },
-    { label: "4K", value: "2160" },
-  ], []);
+  useEffect(() => {
+    window.addEventListener("keydown", handleStatsToggle);
+    return () => window.removeEventListener("keydown", handleStatsToggle);
+  }, [handleStatsToggle]);
+
+  // Dynamic quality options filtered by source resolution via StreamDecisionService
+  const qualityOptions = useMemo(() => {
+    const media = item?.Media?.[selectedMedia] || item?.Media?.[0];
+    const sourceHeight = media?.height ?? 1080;
+    return getQualityOptions(sourceHeight).map((opt) => ({
+      label: opt.label,
+      value: opt.bitrate === 0 ? "original" : String(opt.bitrate),
+    }));
+  }, [item, selectedMedia]);
+
+  /** Attach HLS.js to the video element if the URL is an HLS stream, otherwise set src directly */
+  const attachStream = useCallback((url: string) => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    // Destroy previous HLS instance
+    if (hlsRef.current) {
+      destroyHlsPlayer(hlsRef.current);
+      hlsRef.current = null;
+    }
+
+    if (isHlsStream(url)) {
+      const hls = createHlsPlayer(video, url);
+      hlsRef.current = hls;
+      // If createHlsPlayer returned null, it already set video.src for native HLS
+    } else {
+      video.src = url;
+    }
+  }, []);
 
   // Load media and set up video URL
   useEffect(() => {
     if (!ratingKey) return;
     resumeApplied.current = false;
 
-    flixor.plexServer.getMetadata(ratingKey).then((data) => {
+    flixor.plexServer.getMetadata(ratingKey).then(async (data) => {
       if (!data) return;
       setItem(data);
       const media = data.Media?.[selectedMedia] || data.Media?.[0];
       const part = media?.Part?.[0];
       if (part) {
-        if (quality !== "original" || resolution !== "source") {
-          const maxBitrate = quality !== "original" ? Number(quality) : undefined;
-          const maxRes = resolution !== "source" ? Number(resolution) : undefined;
-          const result = flixor.plexServer.getTranscodeUrl(ratingKey, {
-            mediaIndex: selectedMedia,
-            maxVideoBitrate: maxBitrate,
-            videoResolution: maxRes ? `${Math.round(maxRes * 16 / 9)}x${maxRes}` : undefined,
-          });
-          setVideoUrl(result.startUrl);
+        const streams = part.Stream || [];
+
+        // Build StreamDecisionInput from media/part metadata
+        const sdInput: StreamDecisionInput = {
+          container: media?.container ?? "",
+          videoCodec: media?.videoCodec ?? "",
+          videoProfile: part.videoProfile,
+          width: media?.width,
+          height: media?.height,
+          bitrate: media?.bitrate,
+        };
+
+        // Use StreamDecisionService to determine playback strategy
+        const decision = decideStream(sdInput, quality);
+
+        if (decision.strategy === "direct-play") {
+          const url = await flixor.plexServer.getStreamUrl(ratingKey, selectedMedia);
+          setVideoUrl(url);
+        } else if (decision.strategy === "direct-stream") {
+          const url = await flixor.plexServer.getStreamUrl(ratingKey, selectedMedia);
+          setVideoUrl(url);
         } else {
-          flixor.plexServer.getStreamUrl(ratingKey, selectedMedia).then((url) => {
+          // Transcode
+          try {
+            const session = await startTranscode(ratingKey, {
+              mediaIndex: selectedMedia,
+              maxVideoBitrate: decision.maxBitrate,
+            });
+            transcodeSessionRef.current = session;
+            setVideoUrl(session.startUrl);
+          } catch {
+            // Fallback to direct stream on transcode failure
+            const url = await flixor.plexServer.getStreamUrl(ratingKey, selectedMedia);
             setVideoUrl(url);
-          });
+          }
         }
 
-        const streams = part.Stream || [];
-        setAudioTracks(streams.filter((s) => s.streamType === 2));
-        setSubtitleTracks(streams.filter((s) => s.streamType === 3));
+        // Use StreamDecisionService for track extraction
+        const audioTrackInfos = getAudioOptions(streams);
+        const subTrackInfos = getSubtitleOptions(streams);
+        setAudioTracks(streams.filter((s) => audioTrackInfos.some((t) => t.id === s.id)));
+        setSubtitleTracks(streams.filter((s) => subTrackInfos.some((t) => t.id === s.id)));
         const activeAudio = streams.find((s) => s.streamType === 2 && s.selected);
         const activeSub = streams.find((s) => s.streamType === 3 && s.selected);
         if (activeAudio) setSelectedAudio(activeAudio.id);
@@ -91,7 +180,29 @@ export function PlayerPage() {
         }).catch(() => setNextEpisode(null));
       }
     });
-  }, [ratingKey, selectedMedia, quality, resolution]);
+    // Reset next episode overlay when ratingKey/media/quality changes
+    return () => {
+      setShowNextOverlay(false);
+    };
+  }, [ratingKey, selectedMedia, quality]);
+
+  // Attach HLS.js or set video src when videoUrl changes
+  useEffect(() => {
+    if (videoUrl) {
+      attachStream(videoUrl);
+    }
+  }, [videoUrl, attachStream]);
+
+  // Cleanup HLS.js and transcode session on unmount
+  useEffect(() => {
+    return () => {
+      if (hlsRef.current) {
+        destroyHlsPlayer(hlsRef.current);
+        hlsRef.current = null;
+      }
+      stopActiveSession().catch(() => {});
+    };
+  }, []);
 
   // Resume playback from viewOffset
   useEffect(() => {
@@ -113,60 +224,49 @@ export function PlayerPage() {
     }
   }, [item, videoUrl]);
 
-  // Trakt Scrobbling
+  // Trakt Scrobbling — uses TraktScrobbler for full lifecycle (start/pause/resume/stop)
+  const scrobblerRef = useRef<TraktScrobbler>(new TraktScrobbler());
+
   useEffect(() => {
-    if (!ratingKey || !item || !flixor.trakt.isAuthenticated()) return;
+    if (!ratingKey || !item) return;
 
-    const ids = item.Guid || [];
-    const tmdbId = ids.find((g) => g.id.startsWith("tmdb://"))?.id.replace("tmdb://", "");
-    const imdbId = ids.find((g) => g.id.startsWith("imdb://"))?.id.replace("imdb://", "");
+    const scrobbler = scrobblerRef.current;
+    const media = TraktScrobbler.convertPlexToTraktMedia(item);
+    if (!media) return;
 
-    const startTraktScrobble = async () => {
+    const getProgress = (): number => {
       const video = videoRef.current;
-      if (!video) return;
-      const progress = (video.currentTime / video.duration) * 100;
+      if (!video || !video.duration) return 0;
+      return (video.currentTime / video.duration) * 100;
+    };
 
-      if (item.type === "movie") {
-        await flixor.trakt.startScrobbleMovie(
-          { ids: { tmdb: tmdbId ? Number(tmdbId) : undefined, imdb: imdbId } },
-          progress,
-        );
-      } else if (item.type === "episode") {
-        const grandparentGuid = (item as unknown as Record<string, unknown>).grandparentGuid as Array<{ id: string }> | undefined;
-        const showTmdb = grandparentGuid?.find((g) => g.id.startsWith("tmdb://"))?.id.replace("tmdb://", "");
-        const showImdb = grandparentGuid?.find((g) => g.id.startsWith("imdb://"))?.id.replace("imdb://", "");
-        await flixor.trakt.startScrobbleEpisode(
-          { ids: { tmdb: showTmdb ? Number(showTmdb) : undefined, imdb: showImdb } },
-          { season: item.parentIndex || 1, number: item.index || 1 },
-          progress,
-        );
+    // Start scrobble on mount / when item changes
+    scrobbler.start(media, getProgress());
+
+    const video = videoRef.current;
+
+    const handlePause = () => {
+      scrobbler.pause(getProgress());
+    };
+
+    const handlePlay = () => {
+      // Resume if the scrobbler is paused, otherwise it's the initial play (already started above)
+      if (scrobbler.isCurrentlyScrobbling() && scrobbler.isPaused()) {
+        scrobbler.resume(getProgress());
       }
     };
 
-    startTraktScrobble();
-    const scrobbleTimer = globalThis.setInterval(startTraktScrobble, 60000);
-    const video = videoRef.current;
+    if (video) {
+      video.addEventListener("pause", handlePause);
+      video.addEventListener("play", handlePlay);
+    }
 
     return () => {
-      globalThis.clearInterval(scrobbleTimer);
-      if (video && video.duration > 0) {
-        const progress = (video.currentTime / video.duration) * 100;
-        const movieIds = { ids: { tmdb: tmdbId ? Number(tmdbId) : undefined, imdb: imdbId } };
-
-        if (item.type === "movie") {
-          // Use stop (marks as watched if >= 80%) instead of pause
-          flixor.trakt.stopScrobbleMovie(movieIds, progress).catch(() => {});
-        } else if (item.type === "episode") {
-          const grandparentGuid = (item as unknown as Record<string, unknown>).grandparentGuid as Array<{ id: string }> | undefined;
-          const showTmdb = grandparentGuid?.find((g) => g.id.startsWith("tmdb://"))?.id.replace("tmdb://", "");
-          const showImdb = grandparentGuid?.find((g) => g.id.startsWith("imdb://"))?.id.replace("imdb://", "");
-          flixor.trakt.stopScrobbleEpisode(
-            { ids: { tmdb: showTmdb ? Number(showTmdb) : undefined, imdb: showImdb } },
-            { season: item.parentIndex || 1, number: item.index || 1 },
-            progress,
-          ).catch(() => {});
-        }
+      if (video) {
+        video.removeEventListener("pause", handlePause);
+        video.removeEventListener("play", handlePlay);
       }
+      scrobbler.stop(getProgress()).catch(() => {});
     };
   }, [ratingKey, item]);
 
@@ -203,15 +303,16 @@ export function PlayerPage() {
     saveSettings({ preferredQuality: val });
   };
 
-  const handleResolutionChange = (val: string) => {
-    setResolution(val);
-    saveSettings({ preferredResolution: val });
-  };
-
   const handleTimeUpdate = () => {
     if (!videoRef.current) return;
     const video = videoRef.current;
     const currentTimeMs = video.currentTime * 1000;
+
+    // Update seek slider state
+    setCurrentTime(video.currentTime);
+    if (video.duration && isFinite(video.duration)) {
+      setDuration(video.duration);
+    }
 
     // Marker detection
     if (item?.Marker) {
@@ -226,20 +327,42 @@ export function PlayerPage() {
       const remaining = video.duration - video.currentTime;
       if (remaining <= 30 && remaining > 0 && !showNextOverlay) {
         setShowNextOverlay(true);
-        setNextCountdown(Math.ceil(remaining));
-        nextTimerRef.current = globalThis.setInterval(() => {
-          setNextCountdown((prev) => {
-            if (prev <= 1) {
-              if (nextTimerRef.current) globalThis.clearInterval(nextTimerRef.current);
-              navigate(`/player/${nextEpisode.ratingKey}`, { replace: true });
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000) as unknown as number;
       }
     }
   };
+
+  const handlePlayNext = useCallback(() => {
+    if (nextEpisode) {
+      navigate(`/player/${nextEpisode.ratingKey}`, { replace: true });
+    }
+  }, [nextEpisode, navigate]);
+
+  const handleCancelNext = useCallback(() => {
+    setShowNextOverlay(false);
+  }, []);
+
+  /** Seek to a specific time in the video */
+  const handleSeek = useCallback((time: number) => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = time;
+      setCurrentTime(time);
+    }
+  }, []);
+
+  /** Generate BIF thumbnail preview URL when indexes are available */
+  const getPreviewUrl = useMemo(() => {
+    const part = item?.Media?.[selectedMedia]?.Part?.[0];
+    // indexes field indicates BIF thumbnail availability (not in PlexPart type)
+    const hasIndexes = !!(part && (part as unknown as Record<string, unknown>).indexes);
+    if (!hasIndexes || !part?.id) return undefined;
+    return (time: number): string | null => {
+      return flixor.plexServer.getPhotoTranscodeUrl(
+        `/library/parts/${part.id}/indexes/sd/${Math.floor(time)}`,
+        320,
+        180,
+      );
+    };
+  }, [item, selectedMedia]);
 
   const handleEnded = () => {
     const video = videoRef.current;
@@ -250,7 +373,6 @@ export function PlayerPage() {
         Math.floor(video.duration * 1000),
       );
     }
-    if (nextTimerRef.current) globalThis.clearInterval(nextTimerRef.current);
     if (nextEpisode) {
       navigate(`/player/${nextEpisode.ratingKey}`, { replace: true });
     } else {
@@ -258,21 +380,7 @@ export function PlayerPage() {
     }
   };
 
-  // Cleanup next episode timer
-  useEffect(() => {
-    return () => {
-      if (nextTimerRef.current) globalThis.clearInterval(nextTimerRef.current);
-    };
-  }, []);
 
-  // Reset next overlay on ratingKey change
-  useEffect(() => {
-    setShowNextOverlay(false);
-    setNextCountdown(10);
-    return () => {
-      if (nextTimerRef.current) globalThis.clearInterval(nextTimerRef.current);
-    };
-  }, [ratingKey]);
 
   if (!videoUrl) return <div className="loading">Initializing player...</div>;
 
@@ -280,7 +388,6 @@ export function PlayerPage() {
     <div className="player-container" onMouseMove={handleMouseMove}>
       <video
         ref={videoRef}
-        src={videoUrl}
         className="tv-video"
         autoPlay
         controls={showControls}
@@ -290,39 +397,59 @@ export function PlayerPage() {
         Your browser does not support the video tag.
       </video>
 
-      {/* Next Episode Overlay */}
+      {/* Playback Stats HUD */}
+      <StatsHUD videoRef={videoRef} item={item} visible={showStatsHud} />
+
+      {/* Next Episode Overlay — uses NextEpisodeCountdown component */}
       {showNextOverlay && nextEpisode && (
-        <div className="next-episode-overlay">
-          <div className="next-episode-info">
-            <span className="next-label">Next Episode</span>
-            <span className="next-title">
-              {nextEpisode.title}
-              {nextEpisode.index ? ` (E${nextEpisode.index})` : ""}
-            </span>
-            <span className="next-countdown">Playing in {nextCountdown}s</span>
-          </div>
-          <div className="next-actions">
-            <button
-              className="btn-primary next-play-btn"
-              autoFocus
-              onClick={() => {
-                if (nextTimerRef.current) globalThis.clearInterval(nextTimerRef.current);
-                navigate(`/player/${nextEpisode.ratingKey}`, { replace: true });
-              }}
-            >
-              ▶ Play Now
-            </button>
-            <button
-              className="btn-secondary"
-              onClick={() => {
-                if (nextTimerRef.current) globalThis.clearInterval(nextTimerRef.current);
-                setShowNextOverlay(false);
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+        <NextEpisodeCountdown
+          episode={nextEpisode}
+          countdownSeconds={30}
+          onPlayNext={handlePlayNext}
+          onCancel={handleCancelNext}
+        />
+      )}
+
+      {/* Audio Track Picker Modal */}
+      {showAudioPicker && (
+        <TrackPicker
+          title="Audio"
+          tracks={audioTracks}
+          selectedId={selectedAudio}
+          onSelect={(id) => {
+            handleTrackChange("audio", id);
+            setShowAudioPicker(false);
+          }}
+          onClose={() => setShowAudioPicker(false)}
+        />
+      )}
+
+      {/* Subtitle Track Picker Modal */}
+      {showSubPicker && (
+        <TrackPicker
+          title="Subtitles"
+          tracks={subtitleTracks}
+          selectedId={selectedSub}
+          onSelect={(id) => {
+            handleTrackChange("subtitle", id);
+            setShowSubPicker(false);
+          }}
+          onClose={() => setShowSubPicker(false)}
+          showOff
+        />
+      )}
+
+      {/* Version Picker Modal */}
+      {showVersionPicker && item?.Media && (
+        <VersionPickerModal
+          versions={item.Media}
+          selectedIndex={selectedMedia}
+          onSelect={(idx) => {
+            setSelectedMedia(idx);
+            setShowVersionPicker(false);
+          }}
+          onClose={() => setShowVersionPicker(false)}
+        />
       )}
 
       {showControls && (
@@ -355,24 +482,28 @@ export function PlayerPage() {
             </button>
           )}
 
+          {/* Seek Slider */}
+          <div style={{ padding: "0 24px", marginBottom: 12 }}>
+            <SeekSlider
+              currentTime={currentTime}
+              duration={duration}
+              onSeek={handleSeek}
+              getPreviewUrl={getPreviewUrl}
+            />
+          </div>
+
           <div className="player-tracks">
-            {/* Version picker */}
+            {/* Version picker trigger */}
             {item?.Media && item.Media.length > 1 && (
-              <div className="track-group">
-                <h3>Version</h3>
-                {item.Media.map((m, idx) => (
-                  <button
-                    key={m.id}
-                    className={`track-btn ${idx === selectedMedia ? "active" : ""}`}
-                    onClick={() => setSelectedMedia(idx)}
-                  >
-                    Version {idx + 1} ({m.videoResolution}p)
-                  </button>
-                ))}
-              </div>
+              <button
+                className="track-group-btn"
+                onClick={() => setShowVersionPicker(true)}
+              >
+                Version {selectedMedia + 1}
+              </button>
             )}
 
-            {/* Quality picker */}
+            {/* Quality picker — options filtered by source resolution via StreamDecisionService */}
             <div className="track-group">
               <h3>Quality</h3>
               {qualityOptions.map((opt) => (
@@ -386,53 +517,21 @@ export function PlayerPage() {
               ))}
             </div>
 
-            {/* Resolution picker */}
-            <div className="track-group">
-              <h3>Resolution</h3>
-              {resolutionOptions.map((opt) => (
-                <button
-                  key={opt.value}
-                  className={`track-btn ${resolution === opt.value ? "active" : ""}`}
-                  onClick={() => handleResolutionChange(opt.value)}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+            {/* Audio track picker trigger */}
+            <button
+              className="track-group-btn"
+              onClick={() => setShowAudioPicker(true)}
+            >
+              Audio: {audioTracks.find((t) => t.id === selectedAudio)?.language || "Default"}
+            </button>
 
-            {/* Audio tracks */}
-            <div className="track-group">
-              <h3>Audio</h3>
-              {audioTracks.map((t) => (
-                <button
-                  key={t.id}
-                  className={`track-btn ${selectedAudio === t.id ? "active" : ""}`}
-                  onClick={() => handleTrackChange("audio", t.id)}
-                >
-                  {t.language || "Unknown"} ({t.displayTitle})
-                </button>
-              ))}
-            </div>
-
-            {/* Subtitle tracks */}
-            <div className="track-group">
-              <h3>Subtitles</h3>
-              <button
-                className={`track-btn ${selectedSub === null ? "active" : ""}`}
-                onClick={() => handleTrackChange("subtitle", null)}
-              >
-                Off
-              </button>
-              {subtitleTracks.map((t) => (
-                <button
-                  key={t.id}
-                  className={`track-btn ${selectedSub === t.id ? "active" : ""}`}
-                  onClick={() => handleTrackChange("subtitle", t.id)}
-                >
-                  {t.language || "Unknown"} ({t.displayTitle})
-                </button>
-              ))}
-            </div>
+            {/* Subtitle track picker trigger */}
+            <button
+              className="track-group-btn"
+              onClick={() => setShowSubPicker(true)}
+            >
+              Subtitles: {selectedSub === null ? "Off" : subtitleTracks.find((t) => t.id === selectedSub)?.language || "On"}
+            </button>
           </div>
         </div>
       )}

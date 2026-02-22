@@ -1,12 +1,10 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { flixor } from "../services/flixor";
 import type { PlexPin } from "@flixor/core";
 
 export function Login({ onLogin }: { onLogin: () => void }) {
   const [pin, setPin] = useState<PlexPin | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
 
   useEffect(() => {
     let polling = true;
@@ -23,14 +21,7 @@ export function Login({ onLogin }: { onLogin: () => void }) {
         });
 
         if (token) {
-          const servers = await flixor.getPlexServers();
-          if (servers.length > 0) {
-            await flixor.connectToPlexServer(servers[0]);
-            onLogin();
-            navigate("/");
-          } else {
-            setError("No Plex servers found.");
-          }
+          onLogin();
         }
       } catch (err: unknown) {
         if (err instanceof Error && err.message !== "Stopped") {
@@ -43,7 +34,7 @@ export function Login({ onLogin }: { onLogin: () => void }) {
     return () => {
       polling = false;
     };
-  }, [navigate, onLogin]);
+  }, [onLogin]);
 
   return (
     <div className="login-container">

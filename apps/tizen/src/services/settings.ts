@@ -2,13 +2,23 @@ export interface TizenSettings {
   // Discovery mode
   discoveryDisabled?: boolean;
 
+  // Onboarding
+  onboardingCompleted?: boolean;
+
   // Home screen
+  showHeroSection?: boolean;
   showTrendingRows?: boolean;
   showTraktRows?: boolean;
   showContinueWatchingRow?: boolean;
+  showRecentlyAddedRows?: boolean;
+  showCollectionsRow?: boolean;
+  showGenreRows?: boolean;
 
   // Search
   includeTmdbInSearch?: boolean;
+
+  // TMDB config
+  tmdbEnabled?: boolean;
 
   // MDBList
   mdblistEnabled?: boolean;
@@ -24,19 +34,101 @@ export interface TizenSettings {
   preferredResolution?: string;
 
   // Playback preferences
-  episodeLayout?: "list" | "grid";
+  episodeLayout?: "horizontal" | "vertical";
   autoPlayNext?: boolean;
   streamsBackdrop?: boolean;
+
+  // Playback stats HUD
+  statsHudEnabled?: boolean;
+
+  // Library-only mode
+  libraryOnlyMode?: boolean;
+
+  // Trakt token storage
+  traktAccessToken?: string;
+  traktRefreshToken?: string;
+  traktExpiresAt?: number;
+
+  // Plex TV token
+  plexTvToken?: string;
+
+  // Hero layout
+  heroLayout?: "carousel" | "static" | "hidden";
+
+  // Appearance
+  theme?: string;
+  cardStyle?: string;
+
+  // Subtitle display
+  subtitleSize?: string;
+  subtitleColor?: string;
+  subtitleBackground?: string;
+
+  // Trakt scrobbling
+  traktScrobblingEnabled?: boolean;
+
+  // Per-source ratings visibility
+  showImdb?: boolean;
+  showRt?: boolean;
+  showLetterboxd?: boolean;
+  showMetacritic?: boolean;
+  showTmdbRating?: boolean;
+  showTraktRating?: boolean;
+
+  // Catalog settings
+  catalogDisabledLibraries?: string[];
+
+  // Continue Watching settings
+  continueWatchingCardStyle?: "landscape" | "poster";
+  continueWatchingCachedStreams?: boolean;
+  continueWatchingCacheDuration?: number; // minutes: 15, 30, 60, 360, 720, 1440
+
+  // Details screen settings
+  detailsPageLayout?: "tabbed" | "unified";
+  showRtCritics?: boolean;
+  showRtAudience?: boolean;
+
+  // TMDB settings
+  tmdbBearerToken?: string;
 }
+
+export const DEFAULT_SETTINGS: TizenSettings = {
+  onboardingCompleted: false,
+  showHeroSection: true,
+  showRecentlyAddedRows: true,
+  showCollectionsRow: true,
+  showGenreRows: true,
+  tmdbEnabled: true,
+  statsHudEnabled: false,
+  libraryOnlyMode: false,
+  showTrendingRows: true,
+  showTraktRows: true,
+  showContinueWatchingRow: true,
+  includeTmdbInSearch: true,
+  autoPlayNext: true,
+  heroLayout: "carousel",
+  theme: "dark",
+  cardStyle: "default",
+  subtitleSize: "medium",
+  subtitleColor: "#FFFFFF",
+  subtitleBackground: "transparent",
+  showImdb: true,
+  showRt: true,
+  showLetterboxd: true,
+  showMetacritic: true,
+  showTmdbRating: true,
+  showTraktRating: true,
+};
 
 const KEY = "flixor.tizen.settings";
 
 export function loadSettings(): TizenSettings {
   try {
     const s = localStorage.getItem(KEY);
-    return s ? JSON.parse(s) : {};
+    const stored: TizenSettings = s ? JSON.parse(s) : {};
+    return { ...DEFAULT_SETTINGS, ...stored };
   } catch {
-    return {};
+    return { ...DEFAULT_SETTINGS };
   }
 }
 
@@ -51,10 +143,12 @@ export function setDiscoveryDisabled(disabled: boolean): TizenSettings {
   if (disabled) {
     return saveSettings({
       discoveryDisabled: true,
+      libraryOnlyMode: true,
+      tmdbEnabled: false,
       showTrendingRows: false,
       showTraktRows: false,
       includeTmdbInSearch: false,
     });
   }
-  return saveSettings({ discoveryDisabled: false });
+  return saveSettings({ discoveryDisabled: false, libraryOnlyMode: false });
 }

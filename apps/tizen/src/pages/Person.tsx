@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { flixor } from "../services/flixor";
+import * as tmdbService from "../services/tmdb";
 import { TopNav } from "../components/TopNav";
+import { SmartImage } from "../components/SmartImage";
 import type { TMDBPerson, TMDBMedia } from "@flixor/core";
 
 export function PersonPage() {
@@ -30,13 +32,13 @@ export function PersonPage() {
 
         if (personId) {
           const [details, creditData] = await Promise.all([
-            flixor.tmdb.getPersonDetails(personId),
-            flixor.tmdb.getPersonCredits(personId),
+            tmdbService.getPersonDetails(personId),
+            tmdbService.getPersonCredits(personId),
           ]);
 
           setPerson(details);
 
-          const movieCredits = (creditData.cast || [])
+          const movieCredits = (creditData?.cast || [])
             .filter((c: TMDBMedia) => c.media_type === "movie")
             .sort(
               (a: TMDBMedia, b: TMDBMedia) =>
@@ -44,7 +46,7 @@ export function PersonPage() {
             )
             .slice(0, 15);
 
-          const tvCredits = (creditData.cast || [])
+          const tvCredits = (creditData?.cast || [])
             .filter((c: TMDBMedia) => c.media_type === "tv")
             .sort(
               (a: TMDBMedia, b: TMDBMedia) =>
@@ -84,10 +86,12 @@ export function PersonPage() {
       <div className="person-header">
         <div className="person-profile-container">
           {person.profile_path ? (
-            <img
-              src={flixor.tmdb.getProfileUrl(person.profile_path, "h632")}
+            <SmartImage
+              src={person.profile_path}
               alt={person.name}
+              kind="profile"
               className="person-profile-img"
+              useTmdb
             />
           ) : (
             <div className="person-profile-placeholder">{person.name[0]}</div>
@@ -116,7 +120,6 @@ export function PersonPage() {
                 key={item.id + item.media_type}
                 className="media-card-wrapper"
                 onClick={async () => {
-                  // Attempt to find this item in Plex
                   const guid = `tmdb://${item.id}`;
                   const plexItems = await flixor.plexServer.findByGuid(
                     guid,
@@ -124,16 +127,16 @@ export function PersonPage() {
                   );
                   if (plexItems.length > 0) {
                     navigate(`/details/${plexItems[0].ratingKey}`);
-                  } else {
-                    // Item not in Plex, maybe show a "Not in Library" state or similar
                   }
                 }}
               >
                 <div className="media-card poster">
-                  <img
-                    src={flixor.tmdb.getPosterUrl(item.poster_path, "w342")}
-                    className="card-img"
+                  <SmartImage
+                    src={item.poster_path}
                     alt={item.title || item.name}
+                    kind="poster"
+                    className="card-img"
+                    useTmdb
                   />
                   <div className="card-info">
                     <div className="card-title">{item.title || item.name}</div>
@@ -151,3 +154,5 @@ export function PersonPage() {
     </div>
   );
 }
+
+

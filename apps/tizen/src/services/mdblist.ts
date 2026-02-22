@@ -1,7 +1,12 @@
 import { loadSettings } from "./settings";
+import { cacheService } from "./cache";
 
 const BASE_URL = "https://api.mdblist.com";
-const CACHE_TTL = 5 * 60 * 1000;
+
+// Cache TTL (ms)
+const TTL = {
+  RATINGS: 5 * 60 * 1000, // 5 min
+} as const;
 
 export interface MDBListRatings {
   trakt?: number;
@@ -22,13 +27,18 @@ type RatingType =
   | "audience"
   | "metacritic";
 
-interface CacheEntry {
-  ratings: MDBListRatings;
-  timestamp: number;
+/** Helper to build cache keys */
+function key(...parts: (string | number)[]): string {
+  return `mdblist:${parts.join(":")}`;
 }
 
-const ratingsCache = new Map<string, CacheEntry>();
-
+/**
+ * MDBList uses a direct fetch because @flixor/core does not expose
+ * an MDBList API wrapper. The MDBList rating endpoint requires a
+ * user-provided API key and uses a POST body with IMDb IDs, which
+ * is specific to the Tizen/web integration and not part of the
+ * shared core service layer.
+ */
 async function fetchRating(
   apiKey: string,
   imdbId: string,
@@ -61,29 +71,33 @@ export async function getMDBListRatings(
   const settings = loadSettings();
   if (!settings.mdblistEnabled || !settings.mdblistApiKey) return null;
 
-  const cacheKey = `${mediaType}:${imdbId}`;
-  const cached = ratingsCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) return cached.ratings;
+  const cacheKey = key("ratings", mediaType, imdbId);
+  const cached = cacheService.get<MDBListRatings>(cacheKey);
+  if (cached !== null) return cached;
 
   const apiKey = settings.mdblistApiKey;
   const types: RatingType[] = [
     "trakt", "imdb", "tmdb", "letterboxd", "tomatoes", "audience", "metacritic",
   ];
 
-  const results = await Promise.all(
-    types.map(async (type) => ({
-      type,
-      rating: await fetchRating(apiKey, imdbId, mediaType, type),
-    })),
-  );
+  try {
+    const results = await Promise.all(
+      types.map(async (type) => ({
+        type,
+        rating: await fetchRating(apiKey, imdbId, mediaType, type),
+      })),
+    );
 
-  const ratings: MDBListRatings = {};
-  for (const { type, rating } of results) {
-    if (rating !== undefined) ratings[type] = rating;
+    const ratings: MDBListRatings = {};
+    for (const { type, rating } of results) {
+      if (rating !== undefined) ratings[type] = rating;
+    }
+
+    cacheService.set(cacheKey, ratings, TTL.RATINGS);
+    return ratings;
+  } catch {
+    return null;
   }
-
-  ratingsCache.set(cacheKey, { ratings, timestamp: Date.now() });
-  return ratings;
 }
 
 export function formatRating(

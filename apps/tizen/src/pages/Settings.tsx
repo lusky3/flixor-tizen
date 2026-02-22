@@ -1,28 +1,73 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useFocusable, FocusContext } from "@noriginmedia/norigin-spatial-navigation";
 import { flixor } from "../services/flixor";
 import { loadSettings, saveSettings, setDiscoveryDisabled, type TizenSettings } from "../services/settings";
 import { TopNav } from "../components/TopNav";
+import { SettingsCard } from "../components/SettingsCard";
+import { SettingItem } from "../components/SettingItem";
+import { HomeScreenSettings } from "../components/settings/HomeScreenSettings";
+import { PlaybackSettings } from "../components/settings/PlaybackSettings";
+import { IntegrationSettings } from "../components/settings/IntegrationSettings";
+import { AppearanceSettings } from "../components/settings/AppearanceSettings";
+import { CatalogSettings } from "../components/settings/CatalogSettings";
+import { ContinueWatchingSettings } from "../components/settings/ContinueWatchingSettings";
+import { DetailsScreenSettings } from "../components/settings/DetailsScreenSettings";
+import { PlexSettings } from "../components/settings/PlexSettings";
+import { TraktSettings } from "../components/settings/TraktSettings";
+import { TMDBSettings } from "../components/settings/TMDBSettings";
+import { MDBListSettings } from "../components/settings/MDBListSettings";
+import { OverseerrSettings } from "../components/settings/OverseerrSettings";
 
-type SettingsScreen = "main" | "homeScreen" | "integrations" | "mdblist" | "overseerr" | "playback";
+type SettingsScreen = "main" | "homeScreen" | "playback" | "integrations" | "appearance"
+  | "catalog" | "continueWatching" | "detailsScreen" | "plex" | "trakt" | "tmdb" | "mdblist" | "overseerr";
+
+interface MenuItem {
+  key: SettingsScreen;
+  label: string;
+}
+
+const SUB_SCREENS: MenuItem[] = [
+  { key: "homeScreen", label: "Home Screen" },
+  { key: "catalog", label: "Catalog" },
+  { key: "continueWatching", label: "Continue Watching" },
+  { key: "detailsScreen", label: "Details Screen" },
+  { key: "playback", label: "Playback" },
+  { key: "appearance", label: "Appearance" },
+  { key: "plex", label: "Plex" },
+  { key: "trakt", label: "Trakt" },
+  { key: "tmdb", label: "TMDB" },
+  { key: "mdblist", label: "MDBList" },
+  { key: "overseerr", label: "Overseerr" },
+  { key: "integrations", label: "Integrations" },
+];
 
 export function SettingsPage() {
+  const navigate = useNavigate();
   const [traktAuth, setTraktAuth] = useState(flixor.trakt.isAuthenticated());
   const [traktPin, setTraktPin] = useState<{ user_code: string; verification_url: string } | null>(null);
   const [loadingTrakt, setLoadingTrakt] = useState(false);
   const [settings, setSettings] = useState<TizenSettings>(loadSettings);
   const [screen, setScreen] = useState<SettingsScreen>("main");
 
-  const updateSetting = <K extends keyof TizenSettings>(key: K, value: TizenSettings[K]) => {
+  const { ref: pageRef, focusKey: pageFocusKey } = useFocusable({ trackChildren: true });
+
+  const updateSetting = useCallback(<K extends keyof TizenSettings>(key: K, value: TizenSettings[K]) => {
     const next = saveSettings({ [key]: value });
     setSettings(next);
-  };
+  }, []);
 
-  const handleLogout = async () => {
+  const handleDiscoveryToggle = useCallback((disabled: boolean) => {
+    setDiscoveryDisabled(disabled);
+    setSettings(loadSettings());
+  }, []);
+
+  const handleLogout = useCallback(async () => {
     await flixor.signOutPlex();
     globalThis.location.href = "/";
-  };
+  }, []);
 
-  const handleTraktLogin = async () => {
+  const handleTraktLogin = useCallback(async () => {
     setLoadingTrakt(true);
     try {
       const code = await flixor.trakt.generateDeviceCode();
@@ -39,319 +84,225 @@ export function SettingsPage() {
     } finally {
       setLoadingTrakt(false);
     }
-  };
+  }, []);
 
-  const handleTraktSignOut = async () => {
+  const handleTraktSignOut = useCallback(async () => {
     await flixor.trakt.signOut();
     setTraktAuth(false);
-  };
+  }, []);
 
-  const handleClearCache = async () => {
+  const handleClearCache = useCallback(async () => {
     await flixor.clearAllCaches();
     alert("All caches cleared.");
-  };
+  }, []);
 
-  // Sub-screens
-  if (screen === "homeScreen") {
+  // Back key: sub-screen → main, main → previous page
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "XF86Back" || e.key === "Backspace" || e.key === "GoBack") {
+        e.preventDefault();
+        if (screen !== "main") {
+          setScreen("main");
+        } else {
+          navigate(-1);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [screen, navigate]);
+
+  // Render sub-screen content
+  if (screen !== "main") {
     return (
-      <div className="tv-container pt-nav">
-        <TopNav />
-        <div className="settings-content">
-          <button className="btn-back" onClick={() => setScreen("main")}>&larr; Back</button>
-          <h1 className="settings-title">Home Screen</h1>
-
-          <div className="settings-section">
-            <h2>Row Visibility</h2>
-            <ToggleItem
-              label="Continue Watching"
-              checked={settings.showContinueWatchingRow !== false}
-              onChange={(v) => updateSetting("showContinueWatchingRow", v)}
-            />
-            <ToggleItem
-              label="Trending Rows"
-              checked={settings.showTrendingRows !== false}
-              onChange={(v) => updateSetting("showTrendingRows", v)}
-            />
-            <ToggleItem
-              label="Trakt Rows"
-              checked={settings.showTraktRows !== false}
-              onChange={(v) => updateSetting("showTraktRows", v)}
-            />
+      <FocusContext.Provider value={pageFocusKey}>
+        <div ref={pageRef} className="tv-container pt-nav">
+          <TopNav />
+          <div className="settings-content">
+            <BackButton onBack={() => setScreen("main")} />
+            <h1 className="settings-title">
+              {SUB_SCREENS.find((s) => s.key === screen)?.label}
+            </h1>
+            {screen === "homeScreen" && (
+              <HomeScreenSettings settings={settings} onChange={updateSetting} />
+            )}
+            {screen === "playback" && (
+              <PlaybackSettings settings={settings} onChange={updateSetting} />
+            )}
+            {screen === "integrations" && (
+              <IntegrationSettings settings={settings} onChange={updateSetting} />
+            )}
+            {screen === "appearance" && (
+              <AppearanceSettings settings={settings} onChange={updateSetting} />
+            )}
+            {screen === "catalog" && (
+              <CatalogSettings settings={settings} onChange={updateSetting} />
+            )}
+            {screen === "continueWatching" && (
+              <ContinueWatchingSettings settings={settings} onChange={updateSetting} />
+            )}
+            {screen === "detailsScreen" && (
+              <DetailsScreenSettings settings={settings} onChange={updateSetting} />
+            )}
+            {screen === "plex" && (
+              <PlexSettings settings={settings} onChange={updateSetting} />
+            )}
+            {screen === "trakt" && (
+              <TraktSettings settings={settings} onChange={updateSetting} />
+            )}
+            {screen === "tmdb" && (
+              <TMDBSettings settings={settings} onChange={updateSetting} />
+            )}
+            {screen === "mdblist" && (
+              <MDBListSettings settings={settings} onChange={updateSetting} />
+            )}
+            {screen === "overseerr" && (
+              <OverseerrSettings settings={settings} onChange={updateSetting} />
+            )}
           </div>
         </div>
-      </div>
-    );
-  }
-
-  if (screen === "mdblist") {
-    return (
-      <div className="tv-container pt-nav">
-        <TopNav />
-        <div className="settings-content">
-          <button className="btn-back" onClick={() => setScreen("integrations")}>&larr; Back</button>
-          <h1 className="settings-title">MDBList</h1>
-
-          <div className="settings-section">
-            <ToggleItem
-              label="Enable MDBList Ratings"
-              checked={settings.mdblistEnabled === true}
-              onChange={(v) => updateSetting("mdblistEnabled", v)}
-            />
-            <div className="settings-input-group">
-              <label>API Key</label>
-              <input
-                type="text"
-                className="settings-input"
-                value={settings.mdblistApiKey || ""}
-                placeholder="Enter MDBList API key"
-                onChange={(e) => updateSetting("mdblistApiKey", e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (screen === "overseerr") {
-    return (
-      <div className="tv-container pt-nav">
-        <TopNav />
-        <div className="settings-content">
-          <button className="btn-back" onClick={() => setScreen("integrations")}>&larr; Back</button>
-          <h1 className="settings-title">Overseerr</h1>
-
-          <div className="settings-section">
-            <ToggleItem
-              label="Enable Overseerr"
-              checked={settings.overseerrEnabled === true}
-              onChange={(v) => updateSetting("overseerrEnabled", v)}
-            />
-            <div className="settings-input-group">
-              <label>Server URL</label>
-              <input
-                type="text"
-                className="settings-input"
-                value={settings.overseerrUrl || ""}
-                placeholder="https://overseerr.example.com"
-                onChange={(e) => updateSetting("overseerrUrl", e.target.value)}
-              />
-            </div>
-            <div className="settings-input-group">
-              <label>API Key</label>
-              <input
-                type="text"
-                className="settings-input"
-                value={settings.overseerrApiKey || ""}
-                placeholder="Enter Overseerr API key"
-                onChange={(e) => updateSetting("overseerrApiKey", e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (screen === "playback") {
-    return (
-      <div className="tv-container pt-nav">
-        <TopNav />
-        <div className="settings-content">
-          <button className="btn-back" onClick={() => setScreen("main")}>&larr; Back</button>
-          <h1 className="settings-title">Playback</h1>
-
-          <div className="settings-section">
-            <h2>Episode Display</h2>
-            <button
-              className="settings-nav-item"
-              onClick={() => updateSetting("episodeLayout", settings.episodeLayout === "list" ? "grid" : "list")}
-            >
-              <span>Episode Layout</span>
-              <span className="settings-nav-status">
-                {settings.episodeLayout === "list" ? "List" : "Grid"}
-              </span>
-            </button>
-          </div>
-
-          <div className="settings-section">
-            <h2>Behavior</h2>
-            <ToggleItem
-              label="Auto-play Next Episode"
-              checked={settings.autoPlayNext !== false}
-              onChange={(v) => updateSetting("autoPlayNext", v)}
-            />
-            <ToggleItem
-              label="Show Backdrop on Streams"
-              checked={settings.streamsBackdrop !== false}
-              onChange={(v) => updateSetting("streamsBackdrop", v)}
-            />
-          </div>
-
-          <div className="settings-section">
-            <h2>Quality</h2>
-            <button
-              className="settings-nav-item"
-              onClick={() => {
-                const opts = ["auto", "1080p", "720p", "480p"];
-                const idx = opts.indexOf(settings.preferredResolution || "auto");
-                updateSetting("preferredResolution", opts[(idx + 1) % opts.length]);
-              }}
-            >
-              <span>Preferred Resolution</span>
-              <span className="settings-nav-status">{settings.preferredResolution || "Auto"}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (screen === "integrations") {
-    return (
-      <div className="tv-container pt-nav">
-        <TopNav />
-        <div className="settings-content">
-          <button className="btn-back" onClick={() => setScreen("main")}>&larr; Back</button>
-          <h1 className="settings-title">Integrations</h1>
-
-          <div className="settings-section">
-            <button className="settings-nav-item" onClick={() => setScreen("mdblist")}>
-              <span>MDBList (Multi-source Ratings)</span>
-              <span className="settings-nav-status">
-                {settings.mdblistEnabled ? "Enabled" : "Disabled"} &rsaquo;
-              </span>
-            </button>
-            <button className="settings-nav-item" onClick={() => setScreen("overseerr")}>
-              <span>Overseerr (Media Requests)</span>
-              <span className="settings-nav-status">
-                {settings.overseerrEnabled ? "Enabled" : "Disabled"} &rsaquo;
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
+      </FocusContext.Provider>
     );
   }
 
   // Main settings screen
   return (
-    <div className="tv-container pt-nav">
-      <TopNav />
-      <div className="settings-content">
-        <h1 className="settings-title">Settings</h1>
+    <FocusContext.Provider value={pageFocusKey}>
+      <div ref={pageRef} className="tv-container pt-nav">
+        <TopNav />
+        <div className="settings-content">
+          <h1 className="settings-title">Settings</h1>
 
-        <div className="settings-section">
-          <h2>Plex Account</h2>
-          <div className="settings-item">
-            <span>Server</span>
-            <span>{flixor.server?.name || "None"}</span>
-          </div>
-          <button className="btn-secondary" onClick={handleLogout}>
-            Sign Out of Plex
-          </button>
-        </div>
+          {/* Plex Account */}
+          <SettingsCard title="Plex Account">
+            <SettingItem
+              label="Server"
+              description={flixor.server?.name || "None"}
+              control={{ type: "button", buttonLabel: "Sign Out", onPress: handleLogout }}
+            />
+            <SettingItem
+              label="Switch Profile"
+              control={{ type: "button", buttonLabel: "Select ›", onPress: () => navigate("/profile-select") }}
+            />
+          </SettingsCard>
 
-        <div className="settings-section">
-          <h2>Trakt Integration</h2>
-          <div className="settings-item">
-            <span>Status</span>
-            <span>{traktAuth ? "Connected" : "Not Connected"}</span>
-          </div>
-          {traktAuth ? (
-            <button className="btn-secondary" onClick={handleTraktSignOut}>
-              Sign Out of Trakt
-            </button>
-          ) : (
-            <div className="trakt-login-area">
-              {traktPin ? (
-                <div className="trakt-pin-box">
-                  <p>Go to <strong>{traktPin.verification_url}</strong> and enter:</p>
-                  <div className="pin-display small">{traktPin.user_code}</div>
-                </div>
-              ) : (
-                <button className="btn-primary" onClick={handleTraktLogin} disabled={loadingTrakt}>
-                  {loadingTrakt ? "Initializing..." : "Link Trakt Account"}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+          {/* Trakt Integration */}
+          <SettingsCard title="Trakt Integration">
+            {traktAuth ? (
+              <>
+                <SettingItem
+                  label="Status"
+                  description="Connected"
+                  control={{ type: "button", buttonLabel: "Sign Out", onPress: handleTraktSignOut }}
+                />
+              </>
+            ) : traktPin ? (
+              <div className="trakt-pin-box">
+                <p>Go to <strong>{traktPin.verification_url}</strong> and enter:</p>
+                <div className="pin-display small">{traktPin.user_code}</div>
+              </div>
+            ) : (
+              <SettingItem
+                label="Status"
+                description="Not Connected"
+                control={{
+                  type: "button",
+                  buttonLabel: loadingTrakt ? "Initializing..." : "Link Trakt Account",
+                  onPress: handleTraktLogin,
+                }}
+                disabled={loadingTrakt}
+              />
+            )}
+          </SettingsCard>
 
-        <div className="settings-section">
-          <h2>Discovery</h2>
-          <ToggleItem
-            label="Library Only Mode (disable discovery)"
-            checked={settings.discoveryDisabled === true}
-            onChange={(v) => {
-              setDiscoveryDisabled(v);
-              setSettings(loadSettings());
-            }}
-          />
-          <ToggleItem
-            label="Include TMDB in Search"
-            checked={settings.includeTmdbInSearch !== false && !settings.discoveryDisabled}
-            onChange={(v) => updateSetting("includeTmdbInSearch", v)}
-          />
-        </div>
+          {/* Discovery */}
+          <SettingsCard title="Discovery">
+            <SettingItem
+              label="Library Only Mode"
+              description="Disable all external content sources"
+              control={{
+                type: "toggle",
+                checked: settings.discoveryDisabled === true,
+                onChange: handleDiscoveryToggle,
+              }}
+            />
+            <SettingItem
+              label="Include TMDB in Search"
+              description="Show TMDB results alongside Plex library search"
+              control={{
+                type: "toggle",
+                checked: settings.includeTmdbInSearch !== false && !settings.discoveryDisabled,
+                onChange: (v) => updateSetting("includeTmdbInSearch", v),
+              }}
+              disabled={settings.discoveryDisabled}
+            />
+          </SettingsCard>
 
-        <div className="settings-section">
-          <h2>Content & Display</h2>
-          <button className="settings-nav-item" onClick={() => setScreen("homeScreen")}>
-            <span>Home Screen</span>
-            <span className="settings-nav-status">&rsaquo;</span>
-          </button>
-          <button className="settings-nav-item" onClick={() => setScreen("playback")}>
-            <span>Playback</span>
-            <span className="settings-nav-status">&rsaquo;</span>
-          </button>
-          <button className="settings-nav-item" onClick={() => setScreen("integrations")}>
-            <span>Integrations</span>
-            <span className="settings-nav-status">&rsaquo;</span>
-          </button>
-        </div>
+          {/* Sub-screen navigation */}
+          <SettingsCard title="Content & Display">
+            {SUB_SCREENS.map((item) => (
+              <NavItem key={item.key} label={item.label} onPress={() => setScreen(item.key)} />
+            ))}
+          </SettingsCard>
 
-        <div className="settings-section">
-          <h2>Cache</h2>
-          <button className="btn-secondary" onClick={handleClearCache}>
-            Clear All Caches
-          </button>
-        </div>
+          {/* Cache */}
+          <SettingsCard title="Cache">
+            <SettingItem
+              label="Clear All Caches"
+              description="Remove cached data from all services"
+              control={{ type: "button", buttonLabel: "Clear", onPress: handleClearCache }}
+            />
+          </SettingsCard>
 
-        <div className="settings-section">
-          <h2>About</h2>
-          <div className="settings-item">
-            <span>Version</span>
-            <span>1.0.0-tizen</span>
-          </div>
-          <div className="settings-item">
-            <span>Platform</span>
-            <span>Tizen OS</span>
-          </div>
+          {/* About */}
+          <SettingsCard title="About">
+            <SettingItem
+              label="Version"
+              description="1.0.0-tizen"
+              control={{ type: "button", buttonLabel: "", onPress: () => {} }}
+            />
+            <SettingItem
+              label="Platform"
+              description="Tizen OS"
+              control={{ type: "button", buttonLabel: "", onPress: () => {} }}
+            />
+          </SettingsCard>
         </div>
       </div>
-    </div>
+    </FocusContext.Provider>
   );
 }
 
-function ToggleItem({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (val: boolean) => void;
-}) {
+
+function NavItem({ label, onPress }: { label: string; onPress: () => void }) {
+  const { ref, focused } = useFocusable({ onEnterPress: onPress });
+
   return (
     <button
-      className="settings-toggle-item"
-      onClick={() => onChange(!checked)}
+      ref={ref}
+      className={`setting-item setting-item-button${focused ? " spatial-focused" : ""}`}
+      tabIndex={0}
+      onClick={onPress}
     >
-      <span>{label}</span>
-      <span className={`toggle-indicator ${checked ? "on" : "off"}`}>
-        {checked ? "ON" : "OFF"}
-      </span>
+      <div className="setting-item-text">
+        <span className="setting-item-label">{label}</span>
+      </div>
+      <span className="setting-item-action">›</span>
+    </button>
+  );
+}
+
+function BackButton({ onBack }: { onBack: () => void }) {
+  const { ref, focused } = useFocusable({ onEnterPress: onBack });
+
+  return (
+    <button
+      ref={ref}
+      className={`btn-back${focused ? " spatial-focused" : ""}`}
+      tabIndex={0}
+      onClick={onBack}
+    >
+      ← Back
     </button>
   );
 }

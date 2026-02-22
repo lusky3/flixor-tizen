@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { flixor } from "../services/flixor";
 import type { PlexMediaItem } from "@flixor/core";
 import { TopNav } from "../components/TopNav";
 import { MediaCard } from "../components/MediaCard";
+import { getWatchlist as plexTvGetWatchlist } from "../services/plextv";
+import { getWatchlist as traktGetWatchlist, isAuthenticated as traktIsAuthenticated } from "../services/trakt";
+import { getDetails as tmdbGetDetails, buildImageUrl } from "../services/tmdb";
 
 type MergedItem = PlexMediaItem & { _source?: string; _tmdbPoster?: string };
 
@@ -19,9 +21,9 @@ export function MyListPage() {
         const seen = new Set<string>();
         const merged: MergedItem[] = [];
 
-        // Fetch Plex watchlist
+        // Fetch Plex watchlist via service wrapper (cached + error-handled)
         try {
-          const plexItems = await flixor.plexTv.getWatchlist();
+          const plexItems = await plexTvGetWatchlist();
           for (const item of plexItems) {
             const guids = (item as any).Guid || [];
             const tmdbGuid = guids.find((g: any) => String(g.id).includes("tmdb://"));
@@ -34,10 +36,10 @@ export function MyListPage() {
           }
         } catch { /* ignore plex error */ }
 
-        // Fetch Trakt watchlist if authenticated
-        if (flixor.trakt.isAuthenticated()) {
+        // Fetch Trakt watchlist if authenticated via service wrapper
+        if (traktIsAuthenticated()) {
           try {
-            const traktItems = await flixor.trakt.getWatchlist();
+            const traktItems = await traktGetWatchlist();
             for (const wlItem of traktItems) {
               const media = wlItem.movie || wlItem.show;
               if (!media) continue;
@@ -46,15 +48,14 @@ export function MyListPage() {
               if (seen.has(key)) continue;
               seen.add(key);
 
-              // Build a PlexMediaItem-like object from Trakt data
+              // Enrich with TMDB poster via service wrapper (cached + error-handled)
               let poster = "";
               if (tmdbId) {
                 try {
-                  const details = wlItem.type === "movie"
-                    ? await flixor.tmdb.getMovieDetails(tmdbId)
-                    : await flixor.tmdb.getTVDetails(tmdbId);
+                  const mediaType = wlItem.type === "movie" ? "movie" : "tv";
+                  const details = await tmdbGetDetails(tmdbId, mediaType as "movie" | "tv");
                   if ((details as any)?.poster_path) {
-                    poster = flixor.tmdb.getPosterUrl((details as any).poster_path, "w342");
+                    poster = buildImageUrl((details as any).poster_path, "poster");
                   }
                 } catch { /* ignore */ }
               }
@@ -124,3 +125,5 @@ export function MyListPage() {
     </div>
   );
 }
+
+

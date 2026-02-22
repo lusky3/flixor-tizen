@@ -1,14 +1,30 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { flixor } from "../services/flixor";
+import * as tmdbService from "../services/tmdb";
+import * as traktService from "../services/trakt";
 import { TopNav } from "../components/TopNav";
 import { MediaCard } from "../components/MediaCard";
-import type { PlexMediaItem } from "@flixor/core";
+import { FilterBar } from "../components/FilterBar";
+import type { FilterOption } from "../components/FilterBar";
+import type { PlexMediaItem, TMDBMedia } from "@flixor/core";
 import type { RowData } from "../types";
 
 type TabType = "trending" | "top10" | "coming-soon" | "worth-wait";
 type ContentFilter = "all" | "movies" | "shows";
 type PeriodFilter = "daily" | "weekly" | "monthly";
+
+const contentOptions: FilterOption[] = [
+  { id: "all", label: "All" },
+  { id: "movies", label: "Movies" },
+  { id: "shows", label: "TV Shows" },
+];
+
+const periodOptions: FilterOption[] = [
+  { id: "daily", label: "Today" },
+  { id: "weekly", label: "This Week" },
+  { id: "monthly", label: "This Month" },
+];
 
 export function NewPopularPage() {
   const navigate = useNavigate();
@@ -38,10 +54,10 @@ export function NewPopularPage() {
 
   async function loadTrending() {
     const newRows: RowData[] = [];
-    const timeWindow = period === "daily" ? "day" : "week";
+    const timeWindow: tmdbService.TimeWindow = period === "daily" ? "day" : "week";
 
     if (contentFilter !== "shows") {
-      const movies = await flixor.tmdb.getTrendingMovies(timeWindow as "day" | "week");
+      const movies = await tmdbService.getTrending("movie", timeWindow);
       if (movies.results.length > 0) {
         newRows.push({
           title: "Trending Movies",
@@ -52,7 +68,7 @@ export function NewPopularPage() {
     }
 
     if (contentFilter !== "movies") {
-      const shows = await flixor.tmdb.getTrendingTV(timeWindow as "day" | "week");
+      const shows = await tmdbService.getTrending("tv", timeWindow);
       if (shows.results.length > 0) {
         newRows.push({
           title: "Trending TV Shows",
@@ -80,18 +96,26 @@ export function NewPopularPage() {
   async function loadTop10() {
     const newRows: RowData[] = [];
 
-    if (flixor.trakt.isAuthenticated()) {
+    if (traktService.isAuthenticated()) {
       try {
         if (contentFilter !== "shows") {
-          const traktMovies = await flixor.trakt.getTrendingMovies(1, 10);
-          const movieItems = await enrichTraktList(traktMovies.map((t: Record<string, unknown>) => (t as Record<string, unknown>).movie || t));
+          const traktMovies = await traktService.getTrending("movies");
+          const movieItems = mapTraktTrendingToItems(
+            traktMovies.slice(0, 10) as any[],
+            "movie",
+          );
+          await enrichTraktItems(movieItems);
           if (movieItems.length > 0) {
             newRows.push({ title: `Top 10 Movies · ${periodLabel()}`, items: movieItems, variant: "poster" });
           }
         }
         if (contentFilter !== "movies") {
-          const traktShows = await flixor.trakt.getTrendingShows(1, 10);
-          const showItems = await enrichTraktList(traktShows.map((t: Record<string, unknown>) => (t as Record<string, unknown>).show || t));
+          const traktShows = await traktService.getTrending("shows");
+          const showItems = mapTraktTrendingToItems(
+            traktShows.slice(0, 10) as any[],
+            "show",
+          );
+          await enrichTraktItems(showItems);
           if (showItems.length > 0) {
             newRows.push({ title: `Top 10 Shows · ${periodLabel()}`, items: showItems, variant: "poster" });
           }
@@ -99,8 +123,9 @@ export function NewPopularPage() {
       } catch { /* fallback below */ }
     }
 
+    // Fallback to TMDB trending if Trakt unavailable
     if (newRows.length === 0) {
-      const trending = await flixor.tmdb.getTrendingAll(period === "daily" ? "day" : "week");
+      const trending = await tmdbService.getTrending("all", period === "daily" ? "day" : "week");
       newRows.push({
         title: `Top 10 · ${periodLabel()}`,
         items: mapTmdbResults(trending.results.slice(0, 10), "mixed"),
@@ -114,20 +139,20 @@ export function NewPopularPage() {
   async function loadComingSoon() {
     const newRows: RowData[] = [];
     try {
-      const upcoming = await flixor.tmdb.getUpcomingMovies();
+      const upcoming = await tmdbService.getUpcoming();
       if (upcoming.results.length > 0) {
         newRows.push({
           title: "Coming Soon",
-          items: upcoming.results.slice(0, 20).map((m: Record<string, unknown>) => ({
+          items: upcoming.results.slice(0, 20).map((m) => ({
             ratingKey: `tmdb-movie-${m.id}`,
-            title: (m.title as string) || (m.name as string),
-            thumb: flixor.tmdb.getPosterUrl(m.poster_path as string, "w500"),
-            art: flixor.tmdb.getBackdropUrl(m.backdrop_path as string, "original"),
+            title: (m.title || m.name) as string,
+            thumb: tmdbService.buildImageUrl(m.poster_path, "poster"),
+            art: tmdbService.buildImageUrl(m.backdrop_path, "backdrop"),
             year: m.release_date ? new Date(m.release_date as string).toLocaleDateString() : "",
             summary: (m.overview as string) || "",
             duration: 0,
             guid: `tmdb://${m.id}`,
-          })) as PlexMediaItem[],
+          })) as unknown as PlexMediaItem[],
           variant: "poster",
         });
       }
@@ -138,21 +163,26 @@ export function NewPopularPage() {
   async function loadWorthWait() {
     const newRows: RowData[] = [];
 
-    // Use Trakt popular as a proxy for "most anticipated" since core doesn't have getAnticipated
-    if (flixor.trakt.isAuthenticated()) {
+    if (traktService.isAuthenticated()) {
       try {
-        const popular = await flixor.trakt.getPopularMovies(1, 20);
-        const items = await enrichTraktList(popular);
-        if (items.length > 0) {
-          newRows.push({ title: "Most Anticipated Movies", items, variant: "poster" });
+        if (contentFilter !== "shows") {
+          const anticipated = await traktService.getAnticipated("movies");
+          const items = mapTraktToItems(anticipated.slice(0, 20) as any[], "movie");
+          await enrichTraktItems(items);
+          if (items.length > 0) {
+            newRows.push({ title: "Most Anticipated Movies", items, variant: "poster" });
+          }
         }
       } catch { /* ignore */ }
 
       try {
-        const popularShows = await flixor.trakt.getPopularShows(1, 20);
-        const items = await enrichTraktList(popularShows);
-        if (items.length > 0) {
-          newRows.push({ title: "Most Anticipated Shows", items, variant: "poster" });
+        if (contentFilter !== "movies") {
+          const anticipated = await traktService.getAnticipated("shows");
+          const items = mapTraktToItems(anticipated.slice(0, 20) as any[], "show");
+          await enrichTraktItems(items);
+          if (items.length > 0) {
+            newRows.push({ title: "Most Anticipated Shows", items, variant: "poster" });
+          }
         }
       } catch { /* ignore */ }
     }
@@ -172,43 +202,71 @@ export function NewPopularPage() {
     return "This Week";
   }
 
-  function mapTmdbResults(results: Record<string, unknown>[], type: "movie" | "tv" | "mixed"): PlexMediaItem[] {
+  function mapTmdbResults(results: TMDBMedia[], type: "movie" | "tv" | "mixed"): PlexMediaItem[] {
     return results.map((m) => ({
-      ratingKey: `tmdb-${type === "mixed" ? ((m.media_type as string) || "movie") : type}-${m.id}`,
-      title: (m.title as string) || (m.name as string),
-      thumb: flixor.tmdb.getPosterUrl(m.poster_path as string, "w500"),
-      art: flixor.tmdb.getBackdropUrl(m.backdrop_path as string, "original"),
-      year: ((m.release_date as string) || (m.first_air_date as string) || "").split("-")[0],
+      ratingKey: `tmdb-${type === "mixed" ? (m.media_type || "movie") : type}-${m.id}`,
+      title: (m.title || m.name) as string,
+      thumb: tmdbService.buildImageUrl(m.poster_path, "poster"),
+      art: tmdbService.buildImageUrl(m.backdrop_path, "backdrop"),
+      year: ((m.release_date || m.first_air_date || "") as string).split("-")[0],
       summary: (m.overview as string) || "",
       duration: 0,
       guid: `tmdb://${m.id}`,
-    })) as PlexMediaItem[];
+    })) as unknown as PlexMediaItem[];
   }
 
-  async function enrichTraktList(items: Record<string, unknown>[]): Promise<PlexMediaItem[]> {
-    const enriched: PlexMediaItem[] = [];
-    for (const m of items) {
-      const ids = m.ids as Record<string, unknown> | undefined;
-      const tmdbId = ids?.tmdb as number | undefined;
-      if (!tmdbId) continue;
-      try {
-        const details = await flixor.tmdb.getMovieDetails(tmdbId).catch(() =>
-          flixor.tmdb.getTVDetails(tmdbId),
-        );
-        const d = details as Record<string, unknown>;
-        enriched.push({
-          ratingKey: `trakt-top-${tmdbId}`,
-          title: (m.title as string) || (d.title as string) || (d.name as string),
-          thumb: flixor.tmdb.getPosterUrl(d.poster_path as string, "w500"),
-          art: flixor.tmdb.getBackdropUrl(d.backdrop_path as string, "original"),
-          year: m.year ? String(m.year) : "",
-          summary: (d.overview as string) || "",
-          duration: 0,
-          guid: `tmdb://${tmdbId}`,
-        } as PlexMediaItem);
-      } catch { /* skip */ }
-    }
-    return enriched;
+  /** Map Trakt trending items (which have a nested movie/show object) */
+  function mapTraktTrendingToItems(items: any[], type: "movie" | "show"): PlexMediaItem[] {
+    return items.map((t) => {
+      const inner = t[type] || t;
+      const tmdbId = inner.ids?.tmdb;
+      return {
+        ratingKey: `trakt-top-${tmdbId || inner.ids?.trakt}`,
+        title: inner.title || "Unknown",
+        thumb: "",
+        year: inner.year ? String(inner.year) : "",
+        summary: "",
+        duration: 0,
+        guid: tmdbId ? `tmdb://${tmdbId}` : "",
+      } as any;
+    });
+  }
+
+  /** Map flat Trakt items (popular/anticipated) */
+  function mapTraktToItems(items: any[], type: "movie" | "show"): PlexMediaItem[] {
+    return items.map((m) => {
+      const tmdbId = m.ids?.tmdb;
+      return {
+        ratingKey: `trakt-${type}-${tmdbId || m.ids?.trakt}`,
+        title: m.title || "Unknown",
+        thumb: "",
+        year: m.year ? String(m.year) : "",
+        summary: "",
+        duration: 0,
+        guid: tmdbId ? `tmdb://${tmdbId}` : "",
+      } as any;
+    });
+  }
+
+  /** Enrich Trakt items with TMDB poster/backdrop data */
+  async function enrichTraktItems(items: PlexMediaItem[]) {
+    await Promise.all(
+      items.map(async (item: any) => {
+        const guid = item.guid || "";
+        const tmdbId = guid.replace("tmdb://", "");
+        if (!tmdbId) return;
+        try {
+          const details = await tmdbService.getDetails(Number(tmdbId), "movie")
+            .then((d) => d || tmdbService.getDetails(Number(tmdbId), "tv"));
+          if (details) {
+            const d = details as any;
+            item.thumb = tmdbService.buildImageUrl(d.poster_path, "poster");
+            item.art = tmdbService.buildImageUrl(d.backdrop_path, "backdrop");
+            item.summary = d.overview || "";
+          }
+        } catch { /* skip */ }
+      }),
+    );
   }
 
   const tabs: { id: TabType; label: string }[] = [
@@ -216,18 +274,6 @@ export function NewPopularPage() {
     { id: "top10", label: "Top 10" },
     { id: "coming-soon", label: "Coming Soon" },
     { id: "worth-wait", label: "Worth the Wait" },
-  ];
-
-  const contentOptions: { id: ContentFilter; label: string }[] = [
-    { id: "all", label: "All" },
-    { id: "movies", label: "Movies" },
-    { id: "shows", label: "TV Shows" },
-  ];
-
-  const periodOptions: { id: PeriodFilter; label: string }[] = [
-    { id: "daily", label: "Today" },
-    { id: "weekly", label: "This Week" },
-    { id: "monthly", label: "This Month" },
   ];
 
   const showPeriodFilter = activeTab === "trending" || activeTab === "top10";
@@ -248,31 +294,21 @@ export function NewPopularPage() {
         ))}
       </div>
 
-      {/* Filters row */}
+      {/* Content type filter */}
       <div className="newpopular-filters">
-        <div className="filter-group">
-          {contentOptions.map((opt) => (
-            <button
-              key={opt.id}
-              className={`filter-pill ${contentFilter === opt.id ? "active" : ""}`}
-              onClick={() => setContentFilter(opt.id)}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+        <FilterBar
+          options={contentOptions}
+          activeId={contentFilter}
+          onSelect={(id) => setContentFilter((id as ContentFilter) || "all")}
+          allowDeselect={false}
+        />
         {showPeriodFilter && (
-          <div className="filter-group">
-            {periodOptions.map((opt) => (
-              <button
-                key={opt.id}
-                className={`filter-pill ${period === opt.id ? "active" : ""}`}
-                onClick={() => setPeriod(opt.id)}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          <FilterBar
+            options={periodOptions}
+            activeId={period}
+            onSelect={(id) => setPeriod((id as PeriodFilter) || "weekly")}
+            allowDeselect={false}
+          />
         )}
       </div>
 
