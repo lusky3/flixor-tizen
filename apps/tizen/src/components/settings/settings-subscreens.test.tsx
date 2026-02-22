@@ -26,11 +26,12 @@ function settings(overrides: Partial<TizenSettings> = {}): TizenSettings {
 // ── HomeScreenSettings ──────────────────────────────────────────────
 
 describe("HomeScreenSettings", () => {
-  it("renders all row visibility toggles", () => {
+  it("renders hero layout picker and all row visibility toggles", () => {
     render(
       <HomeScreenSettings settings={settings()} onChange={vi.fn()} />,
     );
-    expect(screen.getByText("Hero Section")).toBeInTheDocument();
+    expect(screen.getByText("Hero Layout")).toBeInTheDocument();
+    expect(screen.getByText("Carousel")).toBeInTheDocument();
     expect(screen.getByText("Continue Watching")).toBeInTheDocument();
     expect(screen.getByText("Trending Rows")).toBeInTheDocument();
     expect(screen.getByText("Trakt Rows")).toBeInTheDocument();
@@ -39,14 +40,34 @@ describe("HomeScreenSettings", () => {
     expect(screen.getByText("Genre Rows")).toBeInTheDocument();
   });
 
+  it("shows correct label for each heroLayout value", () => {
+    const { rerender } = render(
+      <HomeScreenSettings settings={settings({ heroLayout: "static" })} onChange={vi.fn()} />,
+    );
+    expect(screen.getByText("Static Hero with Trailer")).toBeInTheDocument();
+
+    rerender(
+      <HomeScreenSettings settings={settings({ heroLayout: "hidden" })} onChange={vi.fn()} />,
+    );
+    expect(screen.getByText("Hidden")).toBeInTheDocument();
+  });
+
+  it("cycles hero layout on click", () => {
+    const onChange = vi.fn();
+    render(
+      <HomeScreenSettings settings={settings({ heroLayout: "carousel" })} onChange={onChange} />,
+    );
+    fireEvent.click(screen.getByText("Hero Layout").closest("button")!);
+    expect(onChange).toHaveBeenCalledWith("heroLayout", "static");
+  });
+
   it("calls onChange when a toggle is clicked", () => {
     const onChange = vi.fn();
     render(
       <HomeScreenSettings settings={settings()} onChange={onChange} />,
     );
-    // Hero Section is ON by default — clicking should toggle it off
-    fireEvent.click(screen.getByText("Hero Section").closest("button")!);
-    expect(onChange).toHaveBeenCalledWith("showHeroSection", false);
+    fireEvent.click(screen.getByText("Continue Watching").closest("button")!);
+    expect(onChange).toHaveBeenCalledWith("showContinueWatchingRow", false);
   });
 
   it("disables discovery-dependent rows when discoveryDisabled is true", () => {

@@ -8,6 +8,7 @@ import { PosterCard } from "../components/PosterCard";
 import { FilterBar, type FilterOption } from "../components/FilterBar";
 import { SkeletonRow } from "../components/SkeletonRow";
 import { VirtualGrid, type VirtualGridItem } from "../components/VirtualGrid";
+import { SectionBanner } from "../components/SectionBanner";
 
 const PAGE_SIZE = 50;
 
@@ -148,6 +149,15 @@ export function LibraryPage() {
         <div style={{ padding: "0 80px" }}>
           <SkeletonRow count={6} variant="poster" />
           <SkeletonRow count={6} variant="poster" />
+        </div>
+      ) : !flixor.isPlexAuthenticated ? (
+        <div style={{ padding: "0 80px" }}>
+          <SectionBanner
+            title="Connect Your Plex Server"
+            message="Link your Plex account to browse your library."
+            cta="Go to Settings"
+            to="/settings"
+          />
         </div>
       ) : filteredItems.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px", color: "rgba(255,255,255,0.4)", fontSize: "24px" }}>

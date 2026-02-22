@@ -1,4 +1,5 @@
 import type { PlexStream } from '@flixor/core';
+import { loadSettings } from './settings';
 
 // --- Interfaces ---
 
@@ -171,4 +172,100 @@ export function getExternalSubtitleUrl(
 ): string {
   if (!subtitleKey) return '';
   return `${serverUrl}${subtitleKey}?X-Plex-Token=${token}`;
+}
+
+
+// --- Backend-Proxied Stream URL Support ---
+
+export interface BackendStreamOptions {
+  mediaIndex?: number;
+  partIndex?: number;
+  maxBitrate?: number;
+  directPlay?: boolean;
+  directStream?: boolean;
+  subtitleStreamID?: number;
+  audioStreamID?: number;
+}
+
+export interface BackendStreamResult {
+  streamUrl: string;
+  sessionId: string;
+}
+
+export type BackendPlaybackState = 'playing' | 'paused' | 'stopped' | 'buffering';
+
+/**
+ * Attempts to get a stream URL from the backend proxy API.
+ * Returns null if the backend is unavailable or the request fails,
+ * allowing the caller to fall back to direct Plex server calls.
+ */
+export async function getBackendStreamUrl(
+  ratingKey: string,
+  options: BackendStreamOptions = {},
+): Promise<BackendStreamResult | null> {
+  const { backendUrl } = loadSettings();
+  if (!backendUrl) return null;
+
+  try {
+    const params = new URLSearchParams();
+    if (options.mediaIndex != null) params.set('mediaIndex', String(options.mediaIndex));
+    if (options.partIndex != null) params.set('partIndex', String(options.partIndex));
+    if (options.maxBitrate != null) params.set('maxBitrate', String(options.maxBitrate));
+    if (options.directPlay != null) params.set('directPlay', String(options.directPlay));
+    if (options.directStream != null) params.set('directStream', String(options.directStream));
+    if (options.subtitleStreamID != null) params.set('subtitleStreamID', String(options.subtitleStreamID));
+    if (options.audioStreamID != null) params.set('audioStreamID', String(options.audioStreamID));
+
+    const qs = params.toString();
+    const url = `${backendUrl}/api/stream/${encodeURIComponent(ratingKey)}${qs ? `?${qs}` : ''}`;
+
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    if (!data.streamUrl || !data.sessionId) return null;
+
+    return { streamUrl: data.streamUrl, sessionId: data.sessionId };
+  } catch {
+    // Backend unavailable — caller should fall back to direct Plex calls
+    return null;
+  }
+}
+
+/**
+ * Reports playback progress / timeline updates through the backend proxy.
+ * Returns true if the update was accepted, false if the backend is unavailable.
+ */
+export async function updateBackendProgress(
+  ratingKey: string,
+  timeMs: number,
+  durationMs: number,
+  state: BackendPlaybackState,
+): Promise<boolean> {
+  const { backendUrl } = loadSettings();
+  if (!backendUrl) return false;
+
+  try {
+    const res = await fetch(`${backendUrl}/api/timeline`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ratingKey,
+        timeMs,
+        durationMs,
+        state,
+      }),
+      signal: AbortSignal.timeout(5_000),
+    });
+
+    return res.ok;
+  } catch {
+    // Backend unavailable — caller should fall back to direct Plex calls
+    return false;
+  }
 }

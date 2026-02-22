@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { SmartImage } from './SmartImage';
+import ContentRatingBadge from './ContentRatingBadge';
 
 export interface DetailsHeroProps {
   title: string;
@@ -75,7 +76,7 @@ export function DetailsHero({
 
           <div className="hero-meta">
             {year && <span className="meta-badge">{year}</span>}
-            {contentRating && <span className="meta-badge">{contentRating}</span>}
+            {contentRating && <ContentRatingBadge rating={contentRating} size="md" />}
             {formattedDuration && <span className="meta-badge">{formattedDuration}</span>}
           </div>
 

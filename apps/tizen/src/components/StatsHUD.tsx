@@ -2,11 +2,13 @@ import { useState, useEffect, useRef } from "react";
 import type { PlexMediaItem } from "@flixor/core";
 import { extractPlaybackStats } from "../utils/playback-stats";
 import type { PlaybackStats } from "../utils/playback-stats";
+import type { PlaybackStrategy } from "../services/streamDecision";
 
 interface StatsHUDProps {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   item: PlexMediaItem | null;
   visible: boolean;
+  playbackStrategy?: PlaybackStrategy;
 }
 
 function formatTime(seconds: number): string {
@@ -24,7 +26,13 @@ function formatBitrate(kbps: number): string {
   return `${kbps} Kbps`;
 }
 
-export function StatsHUD({ videoRef, item, visible }: StatsHUDProps) {
+const STRATEGY_LABELS: Record<string, string> = {
+  "direct-play": "Direct Play",
+  "direct-stream": "Direct Stream",
+  transcode: "Transcode",
+};
+
+export function StatsHUD({ videoRef, item, visible, playbackStrategy }: StatsHUDProps) {
   const [stats, setStats] = useState<PlaybackStats | null>(null);
   const intervalRef = useRef<number | null>(null);
 
@@ -57,6 +65,16 @@ export function StatsHUD({ videoRef, item, visible }: StatsHUDProps) {
   return (
     <div className="stats-hud">
       <div className="stats-hud-title">Playback Stats</div>
+
+      {playbackStrategy && (
+        <div className="stats-hud-section">
+          <div className="stats-hud-label">Decision</div>
+          <div className="stats-hud-row">
+            <span className="stats-hud-key">Strategy</span>
+            <span className="stats-hud-value">{STRATEGY_LABELS[playbackStrategy] ?? playbackStrategy}</span>
+          </div>
+        </div>
+      )}
 
       <div className="stats-hud-section">
         <div className="stats-hud-label">Video</div>

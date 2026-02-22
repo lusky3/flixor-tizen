@@ -392,3 +392,191 @@ describe('StreamDecision Unit Tests', () => {
     });
   });
 });
+
+
+// --- Backend-proxied stream URL tests ---
+
+import {
+  getBackendStreamUrl,
+  updateBackendProgress,
+  type BackendStreamOptions,
+  type BackendStreamResult,
+  type BackendPlaybackState,
+} from '../../services/streamDecision';
+import { vi, beforeEach, afterEach } from 'vitest';
+
+describe('Backend-Proxied Stream URL Support', () => {
+  const BACKEND_URL = 'https://backend.example.com';
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function setBackendUrl(url: string) {
+    const settings = JSON.parse(localStorage.getItem('flixor.tizen.settings') || '{}');
+    settings.backendUrl = url;
+    localStorage.setItem('flixor.tizen.settings', JSON.stringify(settings));
+  }
+
+  describe('getBackendStreamUrl', () => {
+    it('returns null when backendUrl is not configured', async () => {
+      const result = await getBackendStreamUrl('12345');
+      expect(result).toBeNull();
+    });
+
+    it('returns stream URL and session ID on success', async () => {
+      setBackendUrl(BACKEND_URL);
+      const mockResponse = { streamUrl: 'https://stream.example.com/video.mpd', sessionId: 'sess-abc' };
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify(mockResponse), { status: 200 }),
+      );
+
+      const result = await getBackendStreamUrl('12345');
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('passes options as query parameters', async () => {
+      setBackendUrl(BACKEND_URL);
+      const mockResponse = { streamUrl: 'https://stream.example.com/video.mpd', sessionId: 'sess-123' };
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify(mockResponse), { status: 200 }),
+      );
+
+      const options: BackendStreamOptions = {
+        mediaIndex: 1,
+        maxBitrate: 8000,
+        directPlay: true,
+        audioStreamID: 5,
+      };
+      await getBackendStreamUrl('99999', options);
+
+      const calledUrl = fetchSpy.mock.calls[0][0] as string;
+      expect(calledUrl).toContain('/api/stream/99999');
+      expect(calledUrl).toContain('mediaIndex=1');
+      expect(calledUrl).toContain('maxBitrate=8000');
+      expect(calledUrl).toContain('directPlay=true');
+      expect(calledUrl).toContain('audioStreamID=5');
+    });
+
+    it('returns null on non-OK response', async () => {
+      setBackendUrl(BACKEND_URL);
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response('Not Found', { status: 404 }),
+      );
+
+      const result = await getBackendStreamUrl('12345');
+      expect(result).toBeNull();
+    });
+
+    it('returns null when response is missing streamUrl', async () => {
+      setBackendUrl(BACKEND_URL);
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ sessionId: 'sess-abc' }), { status: 200 }),
+      );
+
+      const result = await getBackendStreamUrl('12345');
+      expect(result).toBeNull();
+    });
+
+    it('returns null when response is missing sessionId', async () => {
+      setBackendUrl(BACKEND_URL);
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ streamUrl: 'https://stream.example.com/video.mpd' }), { status: 200 }),
+      );
+
+      const result = await getBackendStreamUrl('12345');
+      expect(result).toBeNull();
+    });
+
+    it('returns null on network error (graceful fallback)', async () => {
+      setBackendUrl(BACKEND_URL);
+      vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('Network error'));
+
+      const result = await getBackendStreamUrl('12345');
+      expect(result).toBeNull();
+    });
+
+    it('encodes ratingKey in the URL', async () => {
+      setBackendUrl(BACKEND_URL);
+      const mockResponse = { streamUrl: 'https://s.example.com/v.mpd', sessionId: 's1' };
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify(mockResponse), { status: 200 }),
+      );
+
+      await getBackendStreamUrl('key/with spaces');
+      const calledUrl = fetchSpy.mock.calls[0][0] as string;
+      expect(calledUrl).toContain('/api/stream/key%2Fwith%20spaces');
+    });
+  });
+
+  describe('updateBackendProgress', () => {
+    it('returns false when backendUrl is not configured', async () => {
+      const result = await updateBackendProgress('12345', 5000, 120000, 'playing');
+      expect(result).toBe(false);
+    });
+
+    it('returns true on successful update', async () => {
+      setBackendUrl(BACKEND_URL);
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response('', { status: 200 }),
+      );
+
+      const result = await updateBackendProgress('12345', 5000, 120000, 'playing');
+      expect(result).toBe(true);
+    });
+
+    it('sends correct payload', async () => {
+      setBackendUrl(BACKEND_URL);
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response('', { status: 200 }),
+      );
+
+      await updateBackendProgress('12345', 30000, 7200000, 'paused');
+
+      const [url, init] = fetchSpy.mock.calls[0];
+      expect(url).toBe(`${BACKEND_URL}/api/timeline`);
+      expect(init?.method).toBe('POST');
+      expect(JSON.parse(init?.body as string)).toEqual({
+        ratingKey: '12345',
+        timeMs: 30000,
+        durationMs: 7200000,
+        state: 'paused',
+      });
+    });
+
+    it('returns false on non-OK response', async () => {
+      setBackendUrl(BACKEND_URL);
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response('Server Error', { status: 500 }),
+      );
+
+      const result = await updateBackendProgress('12345', 5000, 120000, 'playing');
+      expect(result).toBe(false);
+    });
+
+    it('returns false on network error (graceful fallback)', async () => {
+      setBackendUrl(BACKEND_URL);
+      vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('Network error'));
+
+      const result = await updateBackendProgress('12345', 5000, 120000, 'playing');
+      expect(result).toBe(false);
+    });
+
+    it('handles stopped state', async () => {
+      setBackendUrl(BACKEND_URL);
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response('', { status: 200 }),
+      );
+
+      await updateBackendProgress('12345', 120000, 120000, 'stopped');
+
+      const body = JSON.parse(fetchSpy.mock.calls[0][1]?.body as string);
+      expect(body.state).toBe('stopped');
+    });
+  });
+});

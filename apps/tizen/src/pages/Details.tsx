@@ -25,12 +25,17 @@ import { isAuthenticated as isTraktAuthenticated } from "../services/trakt";
 import { loadSettings } from "../services/settings";
 import {
   getImages as getTmdbImages,
+  getWatchProviders,
 } from "../services/tmdb";
 import { MoodTags } from "../components/MoodTags";
 import { TechnicalChips } from "../components/TechnicalChips";
 import { AccessibilityBadges, detectAccessibilityBadges } from "../components/AccessibilityBadges";
 import { EpisodeLandscapeCard } from "../components/EpisodeLandscapeCard";
 import { EpisodeSkeletonList } from "../components/EpisodeSkeletonList";
+import { PersonModal } from "../components/PersonModal";
+import { VersionSelector } from "../components/VersionSelector";
+import ServiceIcons from "../components/ServiceIcons";
+import type { WatchProvider } from "../components/ServiceIcons";
 
 export function DetailsPage() {
   const { ratingKey } = useParams<{ ratingKey: string }>();
@@ -85,6 +90,17 @@ export function DetailsPage() {
   // Episodes loading state
   const [episodesLoading, setEpisodesLoading] = useState(false);
 
+  // PersonModal state
+  const [personModalOpen, setPersonModalOpen] = useState(false);
+  const [selectedPerson, setSelectedPerson] = useState<{ name?: string } | null>(null);
+
+  // Version selector state
+  const [selectedMedia, setSelectedMedia] = useState(0);
+  const [showVersionSelector, setShowVersionSelector] = useState(false);
+
+  // Watch providers state
+  const [watchProviders, setWatchProviders] = useState<WatchProvider[]>([]);
+
   const handleSeasonSelect = useCallback(async (seasonKey: string) => {
     setSelectedSeason(seasonKey);
     setEpisodesLoading(true);
@@ -121,6 +137,9 @@ export function DetailsPage() {
     setA11yBadges({ hasCC: false, hasSDH: false, hasAD: false });
     setNetworks([]);
     setEpisodesLoading(false);
+    setSelectedMedia(0);
+    setShowVersionSelector(false);
+    setWatchProviders([]);
 
     const fetchData = async () => {
       try {
@@ -128,8 +147,8 @@ export function DetailsPage() {
         if (!data) return;
         setItem(data);
 
-        // Extract tech badges using utility
-        const media0 = data.Media?.[0] as Record<string, unknown> | undefined;
+        // Extract tech badges using utility (uses selectedMedia index, default 0 on fresh load)
+        const media0 = data.Media?.[selectedMedia] as Record<string, unknown> | undefined;
         if (media0) {
           setTechBadges(extractTechBadges({
             width: (media0.width as number) || 0,
@@ -261,6 +280,14 @@ export function DetailsPage() {
               setLogoUrl(buildImageUrl(enLogo.file_path, "logo"));
             }
           } catch { /* ignore */ }
+
+          // Fetch watch providers
+          try {
+            const providers = await getWatchProviders(tmdbIdNum, tmdbMediaType);
+            if (providers?.flatrate) {
+              setWatchProviders(providers.flatrate);
+            }
+          } catch { /* ignore */ }
         }
 
         // Detect accessibility badges from media streams
@@ -297,9 +324,25 @@ export function DetailsPage() {
     fetchData();
   }, [ratingKey, handleSeasonSelect]);
 
+  // Re-extract tech badges when selectedMedia changes
+  useEffect(() => {
+    if (!item?.Media?.[selectedMedia]) return;
+    const media = item.Media[selectedMedia] as unknown as Record<string, unknown>;
+    setTechBadges(extractTechBadges({
+      width: (media.width as number) || 0,
+      height: (media.height as number) || 0,
+      videoProfile: (media.videoProfile as string) || "",
+      audioProfile: (media.audioProfile as string) || "",
+      audioCodec: (media.audioCodec as string) || "",
+    }));
+  }, [item, selectedMedia]);
+
   const handleCastClick = useCallback((name: string) => {
-    if (name) navigate(`/person?name=${encodeURIComponent(name)}`);
-  }, [navigate]);
+    if (name) {
+      setSelectedPerson({ name });
+      setPersonModalOpen(true);
+    }
+  }, []);
 
   // Derived values
   const backdrop = item ? flixor.plexServer.getImageUrl(item.art || item.thumb) : "";
@@ -538,15 +581,15 @@ export function DetailsPage() {
   const genreList: string[] = meta?.Genre ? (meta.Genre as any[]).map((g: any) => g.tag as string) : [];
 
   // Build TechnicalChips info from media metadata
-  const media0Raw = (item as any)?.Media?.[0];
-  const media0Info = media0Raw ? {
-    resolution: media0Raw.height ? `${media0Raw.height}p` : undefined,
-    bitrate: media0Raw.bitrate || undefined,
-    videoCodec: media0Raw.videoCodec || undefined,
-    audioCodec: media0Raw.audioCodec || undefined,
-    audioChannels: media0Raw.audioChannels ? String(media0Raw.audioChannels) : undefined,
-    hdr: media0Raw.videoProfile?.toLowerCase().includes("hdr") || media0Raw.videoProfile?.toLowerCase().includes("dolby")
-      ? media0Raw.videoProfile : undefined,
+  const selectedMediaRaw = (item as any)?.Media?.[selectedMedia];
+  const media0Info = selectedMediaRaw ? {
+    resolution: selectedMediaRaw.height ? `${selectedMediaRaw.height}p` : undefined,
+    bitrate: selectedMediaRaw.bitrate || undefined,
+    videoCodec: selectedMediaRaw.videoCodec || undefined,
+    audioCodec: selectedMediaRaw.audioCodec || undefined,
+    audioChannels: selectedMediaRaw.audioChannels ? String(selectedMediaRaw.audioChannels) : undefined,
+    hdr: selectedMediaRaw.videoProfile?.toLowerCase().includes("hdr") || selectedMediaRaw.videoProfile?.toLowerCase().includes("dolby")
+      ? selectedMediaRaw.videoProfile : undefined,
   } : null;
 
   return (
@@ -586,10 +629,13 @@ export function DetailsPage() {
           {/* Ratings */}
           {ratingsResult && <RatingsBar ratings={ratingsResult.ratings} />}
 
+          {/* Streaming availability */}
+          {watchProviders.length > 0 && <ServiceIcons providers={watchProviders} />}
+
           {/* Action buttons */}
           <div className="hero-actions">
             {item.type === "movie" ? (
-              <button className="btn-primary" autoFocus onClick={() => navigate(`/player/${item.ratingKey}`)}>
+              <button className="btn-primary" autoFocus onClick={() => navigate(`/player/${item.ratingKey}`, { state: { mediaIndex: selectedMedia } })}>
                 {resumeLabel ? `▶ Resume · ${resumeLabel}` : "▶ Play"}
               </button>
             ) : onDeckEpisode ? (
@@ -630,6 +676,12 @@ export function DetailsPage() {
             {tmdbId && (
               <RequestButton tmdbId={tmdbId} mediaType={mediaType} />
             )}
+
+            {item?.Media && item.Media.length > 1 && (
+              <button className="btn-secondary" onClick={() => setShowVersionSelector(true)}>
+                Version {selectedMedia + 1}
+              </button>
+            )}
           </div>
         </DetailsHero>
 
@@ -652,6 +704,23 @@ export function DetailsPage() {
             />
           </div>
         </div>
+      )}
+
+      {/* Person Modal (inline, replaces /person/:id navigation) */}
+      <PersonModal
+        open={personModalOpen}
+        onClose={() => setPersonModalOpen(false)}
+        name={selectedPerson?.name}
+      />
+
+      {/* Version Selector Modal */}
+      {showVersionSelector && item?.Media && (
+        <VersionSelector
+          versions={item.Media}
+          selectedIndex={selectedMedia}
+          onSelect={(idx) => setSelectedMedia(idx)}
+          onClose={() => setShowVersionSelector(false)}
+        />
       )}
     </div>
   );

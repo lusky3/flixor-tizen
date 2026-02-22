@@ -13,7 +13,10 @@ import {
   getQualityOptions,
   getAudioOptions,
   getSubtitleOptions,
+  getBackendStreamUrl,
+  updateBackendProgress,
   type StreamDecisionInput,
+  type PlaybackStrategy,
 } from "../services/streamDecision";
 import {
   startTranscode,
@@ -24,8 +27,12 @@ import {
   isHlsStream,
   createHlsPlayer,
   destroyHlsPlayer,
+  isDashStream,
+  createDashPlayer,
+  destroyDashPlayer,
 } from "../utils/streaming";
 import type Hls from "hls.js";
+import type { MediaPlayerClass } from "dashjs";
 import type { PlexMediaItem, PlexMarker, PlexStream } from "@flixor/core";
 
 export function PlayerPage() {
@@ -40,6 +47,7 @@ export function PlayerPage() {
   const [selectedSub, setSelectedSub] = useState<number | null>(null);
   const [selectedMedia, setSelectedMedia] = useState(0);
   const [quality, setQuality] = useState(() => loadSettings().preferredQuality || "original");
+  const [playbackSpeed, setPlaybackSpeed] = useState(() => loadSettings().preferredPlaybackSpeed ?? 1);
   const [nextEpisode, setNextEpisode] = useState<PlexMediaItem | null>(null);
   const [showNextOverlay, setShowNextOverlay] = useState(false);
   const [showStatsHud, setShowStatsHud] = useState(() => loadSettings().statsHudEnabled ?? false);
@@ -59,7 +67,10 @@ export function PlayerPage() {
   const resumeApplied = useRef(false);
   const lastInfoKeyTime = useRef<number>(0);
   const hlsRef = useRef<Hls | null>(null);
+  const dashRef = useRef<MediaPlayerClass | null>(null);
   const transcodeSessionRef = useRef<TranscodeSession | null>(null);
+  const backendSessionRef = useRef<string | null>(null);
+  const [playbackStrategy, setPlaybackStrategy] = useState<PlaybackStrategy | null>(null);
 
   // Toggle StatsHUD on double-press of Info/Menu key (keyCode 457 = Info on Tizen)
   const handleStatsToggle = useCallback((e: KeyboardEvent) => {
@@ -89,7 +100,7 @@ export function PlayerPage() {
     }));
   }, [item, selectedMedia]);
 
-  /** Attach HLS.js to the video element if the URL is an HLS stream, otherwise set src directly */
+  /** Attach HLS.js or dash.js to the video element, or set src directly */
   const attachStream = useCallback((url: string) => {
     const video = videoRef.current;
     if (!video) return;
@@ -100,7 +111,16 @@ export function PlayerPage() {
       hlsRef.current = null;
     }
 
-    if (isHlsStream(url)) {
+    // Destroy previous DASH instance
+    if (dashRef.current) {
+      destroyDashPlayer(dashRef.current);
+      dashRef.current = null;
+    }
+
+    if (isDashStream(url)) {
+      const player = createDashPlayer(video, url);
+      dashRef.current = player;
+    } else if (isHlsStream(url)) {
       const hls = createHlsPlayer(video, url);
       hlsRef.current = hls;
       // If createHlsPlayer returned null, it already set video.src for native HLS
@@ -134,26 +154,43 @@ export function PlayerPage() {
 
         // Use StreamDecisionService to determine playback strategy
         const decision = decideStream(sdInput, quality);
+        setPlaybackStrategy(decision.strategy);
 
-        if (decision.strategy === "direct-play") {
-          const url = await flixor.plexServer.getStreamUrl(ratingKey, selectedMedia);
-          setVideoUrl(url);
-        } else if (decision.strategy === "direct-stream") {
-          const url = await flixor.plexServer.getStreamUrl(ratingKey, selectedMedia);
-          setVideoUrl(url);
+        // Try backend-proxied stream URL first
+        const backendResult = await getBackendStreamUrl(ratingKey, {
+          mediaIndex: selectedMedia,
+          maxBitrate: decision.maxBitrate,
+          directPlay: decision.strategy === "direct-play",
+          directStream: decision.strategy === "direct-stream",
+        });
+
+        if (backendResult) {
+          backendSessionRef.current = backendResult.sessionId;
+          setVideoUrl(backendResult.streamUrl);
         } else {
-          // Transcode
-          try {
-            const session = await startTranscode(ratingKey, {
-              mediaIndex: selectedMedia,
-              maxVideoBitrate: decision.maxBitrate,
-            });
-            transcodeSessionRef.current = session;
-            setVideoUrl(session.startUrl);
-          } catch {
-            // Fallback to direct stream on transcode failure
+          // Fall back to direct Plex stream
+          backendSessionRef.current = null;
+
+          if (decision.strategy === "direct-play") {
             const url = await flixor.plexServer.getStreamUrl(ratingKey, selectedMedia);
             setVideoUrl(url);
+          } else if (decision.strategy === "direct-stream") {
+            const url = await flixor.plexServer.getStreamUrl(ratingKey, selectedMedia);
+            setVideoUrl(url);
+          } else {
+            // Transcode
+            try {
+              const session = await startTranscode(ratingKey, {
+                mediaIndex: selectedMedia,
+                maxVideoBitrate: decision.maxBitrate,
+              });
+              transcodeSessionRef.current = session;
+              setVideoUrl(session.startUrl);
+            } catch {
+              // Fallback to direct stream on transcode failure
+              const url = await flixor.plexServer.getStreamUrl(ratingKey, selectedMedia);
+              setVideoUrl(url);
+            }
           }
         }
 
@@ -193,12 +230,27 @@ export function PlayerPage() {
     }
   }, [videoUrl, attachStream]);
 
-  // Cleanup HLS.js and transcode session on unmount
+  // Apply saved playback speed when video is ready
+  useEffect(() => {
+    if (!videoRef.current || !videoUrl) return;
+    const video = videoRef.current;
+    const applySpeed = () => {
+      video.playbackRate = playbackSpeed;
+    };
+    video.addEventListener("canplay", applySpeed, { once: true });
+    return () => video.removeEventListener("canplay", applySpeed);
+  }, [videoUrl, playbackSpeed]);
+
+  // Cleanup HLS.js, dash.js, and transcode session on unmount
   useEffect(() => {
     return () => {
       if (hlsRef.current) {
         destroyHlsPlayer(hlsRef.current);
         hlsRef.current = null;
+      }
+      if (dashRef.current) {
+        destroyDashPlayer(dashRef.current);
+        dashRef.current = null;
       }
       stopActiveSession().catch(() => {});
     };
@@ -270,7 +322,7 @@ export function PlayerPage() {
     };
   }, [ratingKey, item]);
 
-  // Progress Reporting (Plex)
+  // Progress Reporting (Plex + backend proxy)
   useEffect(() => {
     if (!ratingKey || !videoRef.current) return;
     const interval = globalThis.setInterval(() => {
@@ -279,6 +331,11 @@ export function PlayerPage() {
         const currentTime = Math.floor(video.currentTime * 1000);
         const duration = Math.floor(video.duration * 1000);
         flixor.plexServer.updateTimeline(ratingKey, "playing", currentTime, duration);
+
+        // Also report via backend if a backend session is active
+        if (backendSessionRef.current) {
+          updateBackendProgress(ratingKey, currentTime, duration, "playing").catch(() => {});
+        }
       }
     }, 10000);
     return () => globalThis.clearInterval(interval);
@@ -297,6 +354,22 @@ export function PlayerPage() {
     const url = await flixor.plexServer.getStreamUrl(ratingKey, selectedMedia);
     setVideoUrl(url);
   };
+
+  const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
+
+  const handleSpeedChange = useCallback((speed: number) => {
+    setPlaybackSpeed(speed);
+    if (videoRef.current) {
+      videoRef.current.playbackRate = speed;
+    }
+    saveSettings({ preferredPlaybackSpeed: speed });
+  }, []);
+
+  const cycleSpeed = useCallback(() => {
+    const currentIdx = SPEED_OPTIONS.indexOf(playbackSpeed as typeof SPEED_OPTIONS[number]);
+    const nextIdx = (currentIdx + 1) % SPEED_OPTIONS.length;
+    handleSpeedChange(SPEED_OPTIONS[nextIdx]);
+  }, [playbackSpeed, handleSpeedChange]);
 
   const handleQualityChange = (val: string) => {
     setQuality(val);
@@ -398,7 +471,7 @@ export function PlayerPage() {
       </video>
 
       {/* Playback Stats HUD */}
-      <StatsHUD videoRef={videoRef} item={item} visible={showStatsHud} />
+      <StatsHUD videoRef={videoRef} item={item} visible={showStatsHud} playbackStrategy={playbackStrategy ?? undefined} />
 
       {/* Next Episode Overlay — uses NextEpisodeCountdown component */}
       {showNextOverlay && nextEpisode && (
@@ -531,6 +604,14 @@ export function PlayerPage() {
               onClick={() => setShowSubPicker(true)}
             >
               Subtitles: {selectedSub === null ? "Off" : subtitleTracks.find((t) => t.id === selectedSub)?.language || "On"}
+            </button>
+
+            {/* Playback speed control */}
+            <button
+              className="track-group-btn"
+              onClick={cycleSpeed}
+            >
+              Speed: {playbackSpeed}x
             </button>
           </div>
         </div>

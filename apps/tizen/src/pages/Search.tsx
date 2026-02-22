@@ -8,6 +8,8 @@ import type { SearchResult } from "../types";
 import { TopNav } from "../components/TopNav";
 import { SearchInput } from "../components/SearchInput";
 import { SearchResults } from "../components/SearchResults";
+import { PopularSearches } from "../components/PopularSearches";
+import { TrendingSearches } from "../components/TrendingSearches";
 
 export function SearchPage() {
   const [query, setQuery] = useState("");
@@ -180,6 +182,16 @@ export function SearchPage() {
       <TopNav />
       <SearchInput value={query} onChange={handleSearch} />
       <div className="search-results">
+        {query.length < 2 && (
+          <>
+            <PopularSearches onSearchTerm={(term) => handleSearch(term)} />
+            <TrendingSearches
+              onSelect={(item) =>
+                navigate(`/details/tmdb-${item.mediaType}-${item.id}`)
+              }
+            />
+          </>
+        )}
         {showTrending && (
           <SearchResults
             results={trending}

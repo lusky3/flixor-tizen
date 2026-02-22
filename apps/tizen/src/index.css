@@ -33,6 +33,24 @@ body {
 }
 
 /* Base Container */
+
+/* ── Global focus visibility (D-PAD navigation) ─────────────────────── */
+/* Catch-all: any focusable element without specific :focus styles gets a
+   visible ring so D-PAD users always know where focus is. */
+*:focus-visible {
+  outline: 2px solid rgba(229, 9, 20, 0.7);
+  outline-offset: 2px;
+}
+
+/* Elements with their own :focus rules already handle visibility */
+button:focus,
+a:focus,
+input:focus,
+[role="button"]:focus,
+[role="switch"]:focus {
+  outline: none;
+}
+
 .tv-container {
   width: 100vw;
   height: 100vh;
@@ -157,6 +175,11 @@ body {
   color: #ff4b2b;
   transform: scale(1.15);
   text-shadow: 0 0 20px rgba(255, 75, 43, 0.5);
+}
+
+.nav-user {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 /* Hero Section */

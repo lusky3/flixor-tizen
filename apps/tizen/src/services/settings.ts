@@ -10,6 +10,7 @@ export interface TizenSettings {
   showTrendingRows?: boolean;
   showTraktRows?: boolean;
   showContinueWatchingRow?: boolean;
+  showWatchlistRow?: boolean;
   showRecentlyAddedRows?: boolean;
   showCollectionsRow?: boolean;
   showGenreRows?: boolean;
@@ -32,6 +33,10 @@ export interface TizenSettings {
   // Player
   preferredQuality?: string;
   preferredResolution?: string;
+  preferredPlaybackSpeed?: number;
+
+  // Backend proxy
+  backendUrl?: string;
 
   // Playback preferences
   episodeLayout?: "horizontal" | "vertical";
@@ -104,6 +109,7 @@ export const DEFAULT_SETTINGS: TizenSettings = {
   showTrendingRows: true,
   showTraktRows: true,
   showContinueWatchingRow: true,
+  showWatchlistRow: true,
   includeTmdbInSearch: true,
   autoPlayNext: true,
   heroLayout: "carousel",

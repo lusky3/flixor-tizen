@@ -3,16 +3,20 @@ import { useNavigate } from "react-router-dom";
 import { flixor } from "../services/flixor";
 import { loadSettings } from "../services/settings";
 import * as tmdbService from "../services/tmdb";
-import * as traktService from "../services/trakt";
 import { getWatchlist as getPlexWatchlist } from "../services/plextv";
 import type { PlexMediaItem } from "@flixor/core";
 import { TopNav } from "../components/TopNav";
 import { HeroCarousel } from "../components/HeroCarousel";
+import { HomeHero } from "../components/HomeHero";
 import { ContentRow } from "../components/ContentRow";
+import { ContinueWatchingLandscapeCard } from "../components/ContinueWatchingLandscapeCard";
+import { ContinueWatchingPosterCard } from "../components/ContinueWatchingPosterCard";
+import { TraktSection } from "../components/TraktSection";
 import { SkeletonRow } from "../components/SkeletonRow";
 import { SmartImage } from "../components/SmartImage";
 import { Billboard } from "../components/Billboard";
 import { UltraBlurBackground } from "../components/UltraBlurBackground";
+import { SectionBanner } from "../components/SectionBanner";
 import { extractUltraBlurColors, type UltraBlurColors } from "../services/colorExtractor";
 import type { RowData } from "../types";
 
@@ -25,23 +29,20 @@ export type HeroItem = PlexMediaItem & {
 export function Home() {
   const [heroItems, setHeroItems] = useState<HeroItem[]>([]);
   const [rows, setRows] = useState<RowData[]>([]);
+  const [continueWatchingItems, setContinueWatchingItems] = useState<PlexMediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeBackdrop, setActiveBackdrop] = useState<string | null>(null);
   const [ultraBlurColors, setUltraBlurColors] = useState<UltraBlurColors | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchContinueWatching = async (newRows: RowData[]) => {
+    const fetchContinueWatching = async () => {
       const settings = loadSettings();
       if (settings.showContinueWatchingRow === false) return [];
       try {
         const result = await flixor.plexServer.getContinueWatching();
         if (result.items.length > 0) {
-          newRows.push({
-            title: "Continue Watching",
-            items: result.items,
-            variant: "poster",
-          });
+          setContinueWatchingItems(result.items);
           return result.items.slice(0, 5);
         }
       } catch (e) {
@@ -117,104 +118,6 @@ export function Home() {
       return candidates;
     };
 
-    const fetchTraktRows = async (newRows: RowData[]) => {
-      const settings = loadSettings();
-      if (settings.showTraktRows === false || !traktService.isAuthenticated()) return;
-
-      try {
-        // Trakt Watchlist
-        const watchlist = await traktService.getWatchlist();
-        if (watchlist.length > 0) {
-          const wlItems: PlexMediaItem[] = watchlist.slice(0, 15).map((w: any) => {
-            const media = w.movie || w.show;
-            const ids = media?.ids || {};
-            return {
-              ratingKey: `trakt-wl-${ids.tmdb || ids.trakt}`,
-              title: media?.title || "Unknown",
-              thumb: "",
-              year: media?.year ? String(media.year) : "",
-              summary: "",
-              duration: 0,
-              guid: ids.tmdb ? `tmdb://${ids.tmdb}` : "",
-            } as any;
-          });
-          await enrichTraktItems(wlItems);
-          if (wlItems.length > 0) {
-            newRows.push({ title: "Trakt Watchlist", items: wlItems, variant: "poster" });
-          }
-        }
-      } catch (e) {
-        console.error("Trakt watchlist failed", e);
-      }
-
-      try {
-        // Trakt Recommendations (movies)
-        const recs = await traktService.getRecommendations("movies");
-        if (recs.length > 0) {
-          const recItems: PlexMediaItem[] = (recs as any[]).slice(0, 15).map((m: any) => ({
-            ratingKey: `trakt-rec-${m.ids?.tmdb || m.ids?.trakt}`,
-            title: m.title || "Unknown",
-            thumb: "",
-            year: m.year ? String(m.year) : "",
-            summary: "",
-            duration: 0,
-            guid: m.ids?.tmdb ? `tmdb://${m.ids.tmdb}` : "",
-          })) as any[];
-          await enrichTraktItems(recItems);
-          if (recItems.length > 0) {
-            newRows.push({ title: "Recommended for You", items: recItems, variant: "poster" });
-          }
-        }
-      } catch (e) {
-        console.error("Trakt recommendations failed", e);
-      }
-
-      try {
-        // Trakt Trending Movies
-        const traktTrending = await traktService.getTrending("movies");
-        if (traktTrending.length > 0) {
-          const items: PlexMediaItem[] = (traktTrending as any[]).slice(0, 15).map((t: any) => {
-            const m = t.movie || t;
-            return {
-              ratingKey: `trakt-trend-${m.ids?.tmdb || m.ids?.trakt}`,
-              title: m.title || "Unknown",
-              thumb: "",
-              year: m.year ? String(m.year) : "",
-              summary: "",
-              duration: 0,
-              guid: m.ids?.tmdb ? `tmdb://${m.ids.tmdb}` : "",
-            } as any;
-          });
-          await enrichTraktItems(items);
-          if (items.length > 0) {
-            newRows.push({ title: "Trending on Trakt", items, variant: "poster" });
-          }
-        }
-      } catch (e) {
-        console.error("Trakt trending failed", e);
-      }
-    };
-
-    const enrichTraktItems = async (items: PlexMediaItem[]) => {
-      await Promise.all(
-        items.map(async (item: any) => {
-          const guid = item.guid || "";
-          const tmdbId = guid.replace("tmdb://", "");
-          if (!tmdbId) return;
-          try {
-            const details = await tmdbService.getDetails(Number(tmdbId), "movie")
-              .then((d) => d || tmdbService.getDetails(Number(tmdbId), "tv"));
-            if (details) {
-              const d = details as any;
-              item.thumb = tmdbService.buildImageUrl(d.poster_path, "poster");
-              item.art = tmdbService.buildImageUrl(d.backdrop_path, "backdrop");
-              item.summary = d.overview || "";
-            }
-          } catch { /* ignore */ }
-        }),
-      );
-    };
-
     /**
      * Resolve trailer URLs for hero items.
      * - Plex items: fetch metadata with extras, extract first trailer Part key → build direct video URL
@@ -272,7 +175,7 @@ export function Home() {
         const settings = loadSettings();
 
         const newRows: RowData[] = [];
-        const continueItems = await fetchContinueWatching(newRows);
+        const continueItems = await fetchContinueWatching();
         await fetchWatchlist(newRows);
         const trendingCandidates = await fetchTrending(newRows);
 
@@ -310,9 +213,6 @@ export function Home() {
             console.error("Failed to load collections", e);
           }
         }
-
-        // Trakt rows
-        await fetchTraktRows(newRows);
 
         // Genre-based rows from Plex libraries
         if (settings.showGenreRows !== false) {
@@ -405,9 +305,6 @@ export function Home() {
       "Recently Added Shows": "/browse/recently-added-shows",
       "Collections": "/browse/collections",
       "Watchlist": "/browse/watchlist",
-      "Trakt Watchlist": "/browse/trakt-watchlist",
-      "Recommended for You": "/browse/trakt-recommended",
-      "Trending on Trakt": "/browse/trakt-trending",
     };
     return linkMap[title];
   };
@@ -431,7 +328,37 @@ export function Home() {
 
       <TopNav />
 
-      <HeroCarousel items={heroItems} onBackdropChange={setActiveBackdrop} />
+      {!flixor.isPlexAuthenticated && (
+        <SectionBanner
+          title="Connect Your Plex Server"
+          message="Link your Plex account to access your libraries, continue watching, and more."
+          cta="Go to Settings"
+          to="/settings"
+        />
+      )}
+
+      {(() => {
+        const settings = loadSettings();
+        const layout = settings.heroLayout ?? "carousel";
+
+        if (layout === "hidden") return null;
+
+        if (layout === "static" && heroItems.length > 0) {
+          const featured = heroItems[0];
+          return (
+            <HomeHero
+              item={featured}
+              onPlay={() => navigate(`/details/${featured.ratingKey}`)}
+              onMoreInfo={() => navigate(`/details/${featured.ratingKey}`)}
+            />
+          );
+        }
+
+        // Default: carousel
+        return (
+          <HeroCarousel items={heroItems} onBackdropChange={setActiveBackdrop} />
+        );
+      })()}
 
       {heroItems.length > 0 && (() => {
         const featured = heroItems[0];
@@ -449,6 +376,29 @@ export function Home() {
         );
       })()}
 
+      {continueWatchingItems.length > 0 && (() => {
+        const cardStyle = loadSettings().continueWatchingCardStyle ?? "landscape";
+        const CardComponent = cardStyle === "poster"
+          ? ContinueWatchingPosterCard
+          : ContinueWatchingLandscapeCard;
+        return (
+          <section className="tv-row-section">
+            <div className="content-row-header">
+              <h2 className="row-title">Continue Watching</h2>
+            </div>
+            <div className="tv-row content-row-scroll">
+              {continueWatchingItems.map((item) => (
+                <CardComponent
+                  key={item.ratingKey}
+                  item={item}
+                  onSelect={(ratingKey) => navigate(`/player/${ratingKey}`)}
+                />
+              ))}
+            </div>
+          </section>
+        );
+      })()}
+
       {rows.map((row) => (
         <ContentRow
           key={row.title}
@@ -460,6 +410,14 @@ export function Home() {
           onItemFocus={handleItemFocus}
         />
       ))}
+
+      {loadSettings().showTraktRows !== false && (
+        <>
+          <TraktSection type="watchlist" mediaType="movies" title="Trakt Watchlist" />
+          <TraktSection type="recommendations" mediaType="movies" title="Recommended for You" />
+          <TraktSection type="trending" mediaType="movies" title="Trending on Trakt" />
+        </>
+      )}
     </div>
   );
 }

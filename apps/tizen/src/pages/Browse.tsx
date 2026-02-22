@@ -9,6 +9,7 @@ import { loadSettings } from "../services/settings";
 import { TopNav } from "../components/TopNav";
 import { PosterCard } from "../components/PosterCard";
 import { SkeletonRow } from "../components/SkeletonRow";
+import { getWatchlist } from "../services/plextv";
 import type { PlexMediaItem } from "@flixor/core";
 
 const PAGE_SIZE = 20;
@@ -24,6 +25,7 @@ function getSourceTitle(source: string): string {
     "trakt-watchlist": "Trakt Watchlist",
     "trakt-recommended": "Recommended for You",
     "trakt-trending": "Trending on Trakt",
+    "watchlist": "Watchlist",
   };
   return titles[source] || source.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -177,6 +179,18 @@ async function fetchSourceItems(
       });
       await enrichTraktItems(items);
       return { items, hasMore: items.length >= PAGE_SIZE };
+    }
+
+    case "watchlist": {
+      const watchlist = await getWatchlist();
+      const offset = (page - 1) * PAGE_SIZE;
+      const paged = watchlist.slice(offset, offset + PAGE_SIZE);
+      const items: PlexMediaItem[] = paged.map((w) => ({
+        ...w,
+        ratingKey: w.ratingKey || `plex-wl-${w.tmdbId || w.title}`,
+        guid: w.tmdbId ? `tmdb://${w.tmdbId}` : w.guid || "",
+      }));
+      return { items, hasMore: offset + paged.length < watchlist.length };
     }
 
     default:

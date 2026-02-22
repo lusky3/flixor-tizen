@@ -77,3 +77,34 @@ export function formatCastDisplay(castMember: CastMember): CastDisplay {
     role: castMember.role ?? "",
   };
 }
+
+export function formatResolution(height?: number): string {
+  if (!height) return "SD";
+  if (height >= 2100) return "4K";
+  if (height >= 1000) return "1080p";
+  if (height >= 700) return "720p";
+  if (height >= 400) return "480p";
+  return "SD";
+}
+
+export function formatBitrate(kbps?: number): string {
+  if (!kbps) return "";
+  if (kbps >= 1000) return `${(kbps / 1000).toFixed(1)} Mbps`;
+  return `${kbps} Kbps`;
+}
+
+export function formatFileSize(bytes?: number): string {
+  if (!bytes) return "";
+  const gb = bytes / (1024 * 1024 * 1024);
+  if (gb >= 1) return `${gb.toFixed(1)} GB`;
+  const mb = bytes / (1024 * 1024);
+  return `${mb.toFixed(0)} MB`;
+}
+
+export function formatAudioChannels(channels?: number): string {
+  if (!channels) return "";
+  if (channels <= 2) return "Stereo";
+  if (channels <= 6) return "5.1";
+  if (channels <= 8) return "7.1";
+  return `${channels}ch`;
+}

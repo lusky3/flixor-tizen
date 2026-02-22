@@ -1,5 +1,6 @@
 import { flixor } from './flixor';
 import { cacheService } from './cache';
+import { loadSettings } from './settings';
 import type {
   TMDBMedia,
   TMDBMovieDetails,
@@ -19,6 +20,7 @@ const TTL = {
   SEARCH: 2 * 60 * 1000,     // 2 min
   PERSON: 30 * 60 * 1000,    // 30 min
   IMAGES: 60 * 60 * 1000,    // 1 hour
+  PROVIDERS: 60 * 60 * 1000, // 1 hour
 } as const;
 
 // TMDB image base URL
@@ -217,4 +219,41 @@ export async function getPersonDetails(id: number): Promise<TMDBPerson | null> {
 export async function getPersonCredits(id: number): Promise<TMDBPersonCredits | null> {
   const k = key('person-credits', id);
   return cached(k, () => flixor.tmdb.getPersonCredits(id), TTL.PERSON, null);
+}
+
+
+// ============================================
+// Watch Providers
+// ============================================
+
+export interface WatchProviderResult {
+  flatrate?: Array<{ provider_id: number; provider_name: string; logo_path: string }>;
+  rent?: Array<{ provider_id: number; provider_name: string; logo_path: string }>;
+  buy?: Array<{ provider_id: number; provider_name: string; logo_path: string }>;
+  link?: string;
+}
+
+export async function getWatchProviders(
+  id: number,
+  type: MediaType,
+): Promise<WatchProviderResult | null> {
+  const k = key('providers', type, id);
+
+  return cached(k, async () => {
+    const settings = loadSettings();
+    const token = settings.tmdbBearerToken;
+    if (!token) return null;
+
+    const res = await fetch(
+      `https://api.themoviedb.org/3/${type}/${id}/watch/providers`,
+      {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      },
+    );
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const results = data.results || {};
+    return results.US || results[Object.keys(results)[0]] || null;
+  }, TTL.PROVIDERS, null);
 }

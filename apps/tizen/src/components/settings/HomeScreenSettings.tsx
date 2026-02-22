@@ -7,13 +7,34 @@ export interface HomeScreenSettingsProps {
   onChange: <K extends keyof TizenSettings>(key: K, value: TizenSettings[K]) => void;
 }
 
+const HERO_LAYOUT_OPTIONS: { label: string; value: TizenSettings["heroLayout"] }[] = [
+  { label: "Carousel", value: "carousel" },
+  { label: "Static Hero with Trailer", value: "static" },
+  { label: "Hidden", value: "hidden" },
+];
+
+const HERO_LAYOUT_LABELS = HERO_LAYOUT_OPTIONS.map((o) => o.label);
+
+function heroLayoutToLabel(value: TizenSettings["heroLayout"]): string {
+  return HERO_LAYOUT_OPTIONS.find((o) => o.value === value)?.label ?? "Carousel";
+}
+
+function labelToHeroLayout(label: string): TizenSettings["heroLayout"] {
+  return HERO_LAYOUT_OPTIONS.find((o) => o.label === label)?.value ?? "carousel";
+}
+
 export function HomeScreenSettings({ settings, onChange }: HomeScreenSettingsProps) {
   return (
     <SettingsCard title="Row Visibility">
       <SettingItem
-        label="Hero Section"
-        description="Featured content carousel at the top"
-        control={{ type: "toggle", checked: settings.showHeroSection !== false, onChange: (v) => onChange("showHeroSection", v) }}
+        label="Hero Layout"
+        description="Choose how the hero section is displayed"
+        control={{
+          type: "select",
+          value: heroLayoutToLabel(settings.heroLayout),
+          options: HERO_LAYOUT_LABELS,
+          onChange: (v) => onChange("heroLayout", labelToHeroLayout(v)),
+        }}
       />
       <SettingItem
         label="Continue Watching"
