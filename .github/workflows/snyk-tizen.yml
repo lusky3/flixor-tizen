@@ -1,0 +1,73 @@
+name: Snyk Security (Tizen)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/tizen/**'
+      - 'packages/core/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/tizen/**'
+      - 'packages/core/**'
+  schedule:
+    - cron: '0 6 * * 1' # Weekly Monday 6am UTC
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  snyk:
+    name: Snyk Dependency Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Snyk Open Source
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: >-
+            --file=apps/tizen/package.json
+            --severity-threshold=high
+            --sarif-file-output=snyk-os.sarif
+
+      - name: Run Snyk Code
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: code test
+          args: >-
+            apps/tizen/src
+            --sarif-file-output=snyk-code.sarif
+
+      - name: Upload Snyk OS results to GitHub
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk-os.sarif
+          category: snyk-open-source
+
+      - name: Upload Snyk Code results to GitHub
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk-code.sarif
+          category: snyk-code

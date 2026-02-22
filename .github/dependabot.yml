@@ -1,0 +1,47 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /apps/tizen
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - tizen
+    commit-message:
+      prefix: "chore(tizen):"
+    groups:
+      testing:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
+          - "@testing-library/*"
+          - "jsdom"
+      lint:
+        patterns:
+          - "eslint*"
+          - "typescript-eslint"
+      build:
+        patterns:
+          - "vite"
+          - "@vitejs/*"
+          - "postcss"
+          - "tailwindcss"
+          - "autoprefixer"
+          - "terser"
+      types:
+        patterns:
+          - "@types/*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - ci
+    commit-message:
+      prefix: "ci:"
