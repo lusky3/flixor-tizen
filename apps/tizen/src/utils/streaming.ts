@@ -1,5 +1,7 @@
 import Hls from "hls.js";
 import type { HlsConfig } from "hls.js";
+import { MediaPlayer } from "dashjs";
+import type { MediaPlayerClass, MediaPlayerSettingClass } from "dashjs";
 
 /** Represents an available quality level from the HLS manifest */
 export interface QualityLevel {
@@ -106,4 +108,65 @@ function formatQualityLabel(height: number, bitrate: number): string {
   if (height >= 720) return `720p (${mbps.toFixed(1)} Mbps)`;
   if (height >= 480) return `480p (${mbps.toFixed(1)} Mbps)`;
   return `${height}p (${mbps.toFixed(1)} Mbps)`;
+}
+
+// ---------------------------------------------------------------------------
+// DASH (dash.js) support
+// ---------------------------------------------------------------------------
+
+/** Default Tizen-optimized dash.js settings overrides */
+const TIZEN_DASH_SETTINGS: MediaPlayerSettingClass = {
+  streaming: {
+    buffer: {
+      bufferTimeDefault: 30,
+      bufferTimeAtTopQuality: 60,
+    },
+  },
+};
+
+/**
+ * Check if a URL points to a DASH stream (.mpd extension or content-type).
+ */
+export function isDashStream(url: string): boolean {
+  try {
+    const pathname = new URL(url, "https://localhost").pathname;
+    return pathname.endsWith(".mpd");
+  } catch {
+    return url.includes(".mpd");
+  }
+}
+
+/**
+ * Create and attach a dash.js MediaPlayer instance to a video element.
+ * Returns the MediaPlayerClass instance, or null if dash.js fails to
+ * initialize (in which case the caller should fall back to direct src).
+ */
+export function createDashPlayer(
+  video: HTMLVideoElement,
+  url: string,
+  settings?: MediaPlayerSettingClass,
+): MediaPlayerClass | null {
+  try {
+    const player = MediaPlayer().create();
+
+    player.updateSettings({
+      ...TIZEN_DASH_SETTINGS,
+      ...settings,
+    });
+
+    player.initialize(video, url, false);
+
+    return player;
+  } catch {
+    // Fallback: set src directly on the video element
+    video.src = url;
+    return null;
+  }
+}
+
+/**
+ * Destroy a dash.js MediaPlayer instance and clean up resources.
+ */
+export function destroyDashPlayer(player: MediaPlayerClass): void {
+  player.destroy();
 }

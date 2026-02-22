@@ -6,6 +6,9 @@ import {
   getQualityLevels,
   setQualityLevel,
   destroyHlsPlayer,
+  isDashStream,
+  createDashPlayer,
+  destroyDashPlayer,
 } from './streaming';
 
 // Mock hls.js
@@ -20,6 +23,20 @@ vi.mock('hls.js', () => {
   }
   return { default: MockHls };
 });
+
+// Mock dashjs
+const mockDashPlayerInstance = {
+  initialize: vi.fn(),
+  updateSettings: vi.fn(),
+  destroy: vi.fn(),
+  reset: vi.fn(),
+};
+
+vi.mock('dashjs', () => ({
+  MediaPlayer: vi.fn(() => ({
+    create: vi.fn(() => mockDashPlayerInstance),
+  })),
+}));
 
 import Hls from 'hls.js';
 
@@ -183,6 +200,86 @@ describe('streaming utilities', () => {
       const hls = { destroy: vi.fn() } as unknown as Hls;
       destroyHlsPlayer(hls);
       expect(hls.destroy).toHaveBeenCalledOnce();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // DASH (dash.js) tests
+  // -------------------------------------------------------------------------
+
+  describe('isDashStream', () => {
+    it('returns true for .mpd URLs', () => {
+      expect(isDashStream('https://example.com/manifest.mpd')).toBe(true);
+    });
+
+    it('returns true for .mpd URLs with query params', () => {
+      expect(isDashStream('https://example.com/manifest.mpd?token=abc')).toBe(true);
+    });
+
+    it('returns false for .mp4 URLs', () => {
+      expect(isDashStream('https://example.com/video.mp4')).toBe(false);
+    });
+
+    it('returns false for .m3u8 URLs', () => {
+      expect(isDashStream('https://example.com/stream.m3u8')).toBe(false);
+    });
+
+    it('handles relative paths containing .mpd', () => {
+      expect(isDashStream('/video/manifest.mpd')).toBe(true);
+    });
+
+    it('returns false for empty string', () => {
+      expect(isDashStream('')).toBe(false);
+    });
+  });
+
+  describe('createDashPlayer', () => {
+    it('returns MediaPlayerClass instance on success', () => {
+      const video = document.createElement('video');
+      const player = createDashPlayer(video, 'https://example.com/manifest.mpd');
+
+      expect(player).not.toBeNull();
+      expect(mockDashPlayerInstance.updateSettings).toHaveBeenCalled();
+      expect(mockDashPlayerInstance.initialize).toHaveBeenCalledWith(
+        video,
+        'https://example.com/manifest.mpd',
+        false,
+      );
+    });
+
+    it('merges custom settings with defaults', () => {
+      const video = document.createElement('video');
+      const customSettings = { streaming: { buffer: { bufferTimeDefault: 10 } } };
+      createDashPlayer(video, 'https://example.com/manifest.mpd', customSettings);
+
+      expect(mockDashPlayerInstance.updateSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          streaming: expect.objectContaining({
+            buffer: expect.objectContaining({ bufferTimeDefault: 10 }),
+          }),
+        }),
+      );
+    });
+
+    it('falls back to direct src when dash.js throws', async () => {
+      const { MediaPlayer: MockMediaPlayer } = await import('dashjs');
+      vi.mocked(MockMediaPlayer).mockImplementationOnce(() => {
+        throw new Error('dash.js load failure');
+      });
+
+      const video = { src: '' } as HTMLVideoElement;
+      const result = createDashPlayer(video, 'https://example.com/manifest.mpd');
+
+      expect(result).toBeNull();
+      expect(video.src).toBe('https://example.com/manifest.mpd');
+    });
+  });
+
+  describe('destroyDashPlayer', () => {
+    it('calls destroy on the dash.js player instance', () => {
+      const player = { destroy: vi.fn() } as unknown as import('dashjs').MediaPlayerClass;
+      destroyDashPlayer(player);
+      expect(player.destroy).toHaveBeenCalledOnce();
     });
   });
 });
