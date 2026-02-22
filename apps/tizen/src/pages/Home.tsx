@@ -4,6 +4,7 @@ import { flixor } from "../services/flixor";
 import { loadSettings } from "../services/settings";
 import * as tmdbService from "../services/tmdb";
 import * as traktService from "../services/trakt";
+import { getWatchlist as getPlexWatchlist } from "../services/plextv";
 import type { PlexMediaItem } from "@flixor/core";
 import { TopNav } from "../components/TopNav";
 import { HeroCarousel } from "../components/HeroCarousel";
@@ -15,8 +16,14 @@ import { UltraBlurBackground } from "../components/UltraBlurBackground";
 import { extractUltraBlurColors, type UltraBlurColors } from "../services/colorExtractor";
 import type { RowData } from "../types";
 
+/** Hero item extended with optional trailer info */
+export type HeroItem = PlexMediaItem & {
+  videoUrl?: string;  // Direct Plex trailer URL (from Extras.Metadata)
+  ytKey?: string;     // YouTube trailer key (from TMDB videos)
+};
+
 export function Home() {
-  const [heroItems, setHeroItems] = useState<PlexMediaItem[]>([]);
+  const [heroItems, setHeroItems] = useState<HeroItem[]>([]);
   const [rows, setRows] = useState<RowData[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeBackdrop, setActiveBackdrop] = useState<string | null>(null);
@@ -41,6 +48,23 @@ export function Home() {
         console.error("Plex Continue Watching failed", e);
       }
       return [];
+    };
+
+    const fetchWatchlist = async (newRows: RowData[]) => {
+      const settings = loadSettings();
+      if (settings.showWatchlistRow === false) return;
+      try {
+        const watchlistItems = await getPlexWatchlist();
+        if (watchlistItems.length > 0) {
+          newRows.push({
+            title: "Watchlist",
+            items: watchlistItems.slice(0, 15),
+            variant: "poster",
+          });
+        }
+      } catch (e) {
+        console.error("Plex.tv Watchlist failed", e);
+      }
     };
 
     const fetchTrending = async (newRows: RowData[]) => {
@@ -191,6 +215,57 @@ export function Home() {
       );
     };
 
+    /**
+     * Resolve trailer URLs for hero items.
+     * - Plex items: fetch metadata with extras, extract first trailer Part key → build direct video URL
+     * - TMDB items: fetch videos, find YouTube trailer → store ytKey
+     */
+    const resolveHeroTrailers = async (items: PlexMediaItem[]): Promise<HeroItem[]> => {
+      const results: HeroItem[] = await Promise.all(
+        items.map(async (item): Promise<HeroItem> => {
+          const heroItem: HeroItem = { ...item };
+          try {
+            const rk = item.ratingKey || "";
+
+            // TMDB items have ratingKeys like "tmdb-movie-123" or "tmdb-tv-456"
+            const tmdbMatch = rk.match(/^tmdb-(movie|tv)-(\d+)$/);
+            if (tmdbMatch) {
+              const mediaType = tmdbMatch[1] as "movie" | "tv";
+              const tmdbId = Number(tmdbMatch[2]);
+              const videos = await tmdbService.getVideos(tmdbId, mediaType);
+              const trailer = (videos.results || []).find(
+                (v) => v.site === "YouTube" && v.type === "Trailer",
+              ) || (videos.results || []).find(
+                (v) => v.site === "YouTube",
+              );
+              if (trailer) {
+                heroItem.ytKey = trailer.key;
+              }
+              return heroItem;
+            }
+
+            // Plex items: fetch full metadata with extras to get trailer
+            if (rk && !rk.startsWith("trakt-")) {
+              const metadata = await flixor.plexServer.getMetadata(rk);
+              if (metadata?.Extras?.Metadata?.length) {
+                // Use the first extra (typically the primary trailer)
+                const trailerExtra = metadata.Extras.Metadata[0];
+                const partKey = (trailerExtra as any)?.Media?.[0]?.Part?.[0]?.key as string | undefined;
+                if (partKey) {
+                  // Build direct video URL (baseUrl + partKey + token)
+                  heroItem.videoUrl = flixor.plexServer.getImageUrl(partKey);
+                }
+              }
+            }
+          } catch (e) {
+            console.error(`[Home] Trailer resolution failed for ${item.ratingKey}:`, e);
+          }
+          return heroItem;
+        }),
+      );
+      return results;
+    };
+
     const loadContent = async () => {
       try {
         if (!flixor.isPlexAuthenticated) return;
@@ -198,10 +273,12 @@ export function Home() {
 
         const newRows: RowData[] = [];
         const continueItems = await fetchContinueWatching(newRows);
+        await fetchWatchlist(newRows);
         const trendingCandidates = await fetchTrending(newRows);
 
         const heroCandidates = [...continueItems, ...trendingCandidates];
-        setHeroItems(heroCandidates);
+        const heroWithTrailers = await resolveHeroTrailers(heroCandidates);
+        setHeroItems(heroWithTrailers);
 
         const libraries = await flixor.plexServer.getLibraries();
         const movieLib = libraries.find((l) => l.type === "movie");
@@ -327,6 +404,7 @@ export function Home() {
       "Recently Added Movies": "/browse/recently-added-movies",
       "Recently Added Shows": "/browse/recently-added-shows",
       "Collections": "/browse/collections",
+      "Watchlist": "/browse/watchlist",
       "Trakt Watchlist": "/browse/trakt-watchlist",
       "Recommended for You": "/browse/trakt-recommended",
       "Trending on Trakt": "/browse/trakt-trending",
