@@ -5,8 +5,15 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=1920, user-scalable=no" />
     <title>Flixor Tizen</title>
-    <!-- Tizen WebAPI -->
-    <script src="$WEBAPIS/webapis/webapis.js"></script>
+    <!-- Tizen WebAPI (injected at runtime on device, ignored by Vite) -->
+    <script>
+      // Load Tizen WebAPIs only when running on a Tizen device
+      if (typeof tizen !== 'undefined' || navigator.userAgent.indexOf('Tizen') !== -1) {
+        var s = document.createElement('script');
+        s.src = '$WEBAPIS/webapis/webapis.js';
+        document.head.appendChild(s);
+      }
+    </script>
   </head>
   <body style="background: #050505; color: white; margin: 0; overflow: hidden">
     <div id="root">

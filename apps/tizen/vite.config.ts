@@ -15,6 +15,16 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 1600, // vendor-streaming (hls.js + dashjs) is ~1.5MB
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-spatial': ['@noriginmedia/norigin-spatial-navigation'],
+          'vendor-streaming': ['hls.js', 'dashjs'],
+        },
+      },
+    },
   },
   test: {
     globals: true,

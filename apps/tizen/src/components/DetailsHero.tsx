@@ -66,7 +66,7 @@ export function DetailsHero({
               {techBadges.map((badge) => (
                 <span
                   key={badge}
-                  className={`tech-badge ${badge.toLowerCase().replace(/\s/g, '-')}`}
+                  className={`tech-badge ${badge.toLowerCase().replace(/\s/g, '-').replace(/^(\d)/, 'res-$1')}`}
                 >
                   {badge}
                 </span>
