@@ -188,4 +188,40 @@ describe("Home", () => {
     });
     expect(screen.getByTestId("billboard")).toBeInTheDocument();
   });
+
+  it("renders watchlist row when items exist", async () => {
+    mockGetPlexWatchlist.mockResolvedValue([
+      { ratingKey: "w1", title: "Watchlist Movie", thumb: "/t.jpg" },
+    ]);
+    await act(async () => {
+      render(<Home />);
+    });
+    expect(screen.getByText("Watchlist")).toBeInTheDocument();
+  });
+
+  it("renders hero carousel when heroLayout is carousel", async () => {
+    mockGetContinueWatching.mockResolvedValue({
+      items: [
+        { ratingKey: "1", title: "Hero 1", thumb: "/t.jpg", art: "/a.jpg", type: "movie" },
+        { ratingKey: "2", title: "Hero 2", thumb: "/t2.jpg", art: "/a2.jpg", type: "movie" },
+      ],
+    });
+    await act(async () => {
+      render(<Home />);
+    });
+    expect(screen.getByTestId("hero-carousel")).toBeInTheDocument();
+  });
+
+  it("renders recently added shows", async () => {
+    mockGetLibraries.mockResolvedValue([
+      { key: "2", type: "show", title: "TV Shows" },
+    ]);
+    mockGetRecentlyAdded.mockResolvedValue([
+      { ratingKey: "s1", title: "New Show", thumb: "/t.jpg" },
+    ]);
+    await act(async () => {
+      render(<Home />);
+    });
+    expect(screen.getByText("Recently Added Shows")).toBeInTheDocument();
+  });
 });

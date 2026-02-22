@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { SearchPage } from "../../pages/Search";
 
 const mockNavigate = vi.fn();
@@ -118,5 +118,47 @@ describe("SearchPage", () => {
       render(<SearchPage />);
     });
     expect(screen.getByText(/Popular on Trakt/)).toBeInTheDocument();
+  });
+
+  it("performs search when query is 2+ chars", async () => {
+    mockPlexSearch.mockResolvedValue([
+      { ratingKey: "100", title: "Test Movie", type: "movie", thumb: "/t.jpg", year: 2024 },
+    ]);
+    await act(async () => render(<SearchPage />));
+    const input = screen.getByTestId("search-input");
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "test query" } });
+    });
+    expect(mockPlexSearch).toHaveBeenCalledWith("test query");
+  });
+
+  it("clears results when query is too short", async () => {
+    await act(async () => render(<SearchPage />));
+    const input = screen.getByTestId("search-input");
+    // First search with valid query
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "ab" } });
+    });
+    // Then clear
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "a" } });
+    });
+    // Popular searches should be visible again (query < 2)
+    expect(screen.getByTestId("popular-searches")).toBeInTheDocument();
+  });
+
+  it("includes TMDB results when discovery enabled", async () => {
+    mockPlexSearch.mockResolvedValue([]);
+    mockTmdbSearch.mockResolvedValue({
+      results: [
+        { id: 99, title: "TMDB Movie", media_type: "movie", poster_path: "/p.jpg", release_date: "2025-01-01" },
+      ],
+    });
+    await act(async () => render(<SearchPage />));
+    const input = screen.getByTestId("search-input");
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "tmdb test" } });
+    });
+    expect(mockTmdbSearch).toHaveBeenCalledWith("tmdb test", "multi");
   });
 });
