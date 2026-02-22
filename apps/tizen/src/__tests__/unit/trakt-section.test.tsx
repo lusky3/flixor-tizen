@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, waitFor } from "@testing-library/react";
 import type { TraktTrendingMovie, TraktWatchlistItem, TraktHistoryItem, TraktMovie, TraktShow } from "@flixor/core";
 
 // ── Mocks ──────────────────────────────────────────────────────────────
@@ -158,14 +158,14 @@ describe("TraktSection", () => {
       mockGetTrending.mockResolvedValue(items);
       setupTmdbSuccess();
 
-      let container: HTMLElement;
       await act(async () => {
-        const result = render(<TraktSection type="trending" mediaType="movies" />);
-        container = result.container;
+        render(<TraktSection type="trending" mediaType="movies" />);
       });
 
       // After async resolution, ContentRow should be rendered
-      expect(screen.getByTestId("content-row")).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId("content-row")).toBeInTheDocument();
+      });
       expect(screen.getByTestId("row-title")).toHaveTextContent("Trending Movies on Trakt");
       expect(screen.getByTestId("row-count")).toHaveTextContent("2");
     });
@@ -178,11 +178,11 @@ describe("TraktSection", () => {
       const TraktSection = await importTraktSection();
       mockGetTrending.mockResolvedValue([]);
 
-      const { container } = await act(async () =>
-        render(<TraktSection type="trending" mediaType="movies" />),
-      );
+      const { container } = render(<TraktSection type="trending" mediaType="movies" />);
 
-      expect(container.innerHTML).toBe("");
+      await waitFor(() => {
+        expect(container.innerHTML).toBe("");
+      });
     });
   });
 
@@ -193,11 +193,11 @@ describe("TraktSection", () => {
       const TraktSection = await importTraktSection();
       mockGetTrending.mockRejectedValue(new Error("Network error"));
 
-      const { container } = await act(async () =>
-        render(<TraktSection type="trending" mediaType="movies" />),
-      );
+      const { container } = render(<TraktSection type="trending" mediaType="movies" />);
 
-      expect(container.innerHTML).toBe("");
+      await waitFor(() => {
+        expect(container.innerHTML).toBe("");
+      });
     });
   });
 
@@ -210,11 +210,11 @@ describe("TraktSection", () => {
         const TraktSection = await importTraktSection();
         mockIsAuthenticated.mockReturnValue(false);
 
-        const { container } = await act(async () =>
-          render(<TraktSection type={type} mediaType="movies" />),
-        );
+        const { container } = render(<TraktSection type={type} mediaType="movies" />);
 
-        expect(container.innerHTML).toBe("");
+        await waitFor(() => {
+          expect(container.innerHTML).toBe("");
+        });
       },
     );
   });
@@ -238,11 +238,11 @@ describe("TraktSection", () => {
 
         setupTmdbSuccess();
 
-        await act(async () => {
-          render(<TraktSection type={type} mediaType="movies" />);
-        });
+        render(<TraktSection type={type} mediaType="movies" />);
 
-        expect(screen.getByTestId("content-row")).toBeInTheDocument();
+        await waitFor(() => {
+          expect(screen.getByTestId("content-row")).toBeInTheDocument();
+        });
       },
     );
   });
@@ -257,12 +257,11 @@ describe("TraktSection", () => {
       // buildImageUrl returns "" for null/undefined paths
       mockBuildImageUrl.mockReturnValue("");
 
-      const { container } = await act(async () =>
-        render(<TraktSection type="trending" mediaType="movies" />),
-      );
+      const { container } = render(<TraktSection type="trending" mediaType="movies" />);
 
-      // All items filtered out → section hidden
-      expect(container.innerHTML).toBe("");
+      await waitFor(() => {
+        expect(container.innerHTML).toBe("");
+      });
     });
 
     it("keeps items that succeed enrichment, filters those that fail", async () => {
@@ -290,11 +289,11 @@ describe("TraktSection", () => {
         path ? `https://tmdb.test${path}` : "",
       );
 
-      await act(async () => {
-        render(<TraktSection type="trending" mediaType="movies" />);
-      });
+      render(<TraktSection type="trending" mediaType="movies" />);
 
-      expect(screen.getByTestId("content-row")).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId("content-row")).toBeInTheDocument();
+      });
       // Only the successfully enriched item should remain
       expect(screen.getByTestId("row-count")).toHaveTextContent("1");
     });
@@ -367,11 +366,11 @@ describe("TraktSection", () => {
             break;
         }
 
-        await act(async () => {
-          render(<TraktSection type={type} mediaType={mediaType} />);
-        });
+        render(<TraktSection type={type} mediaType={mediaType} />);
 
-        expect(screen.getByTestId("row-title")).toHaveTextContent(expected);
+        await waitFor(() => {
+          expect(screen.getByTestId("row-title")).toHaveTextContent(expected);
+        });
       },
     );
 
@@ -380,13 +379,13 @@ describe("TraktSection", () => {
       mockGetTrending.mockResolvedValue([makeTrendingMovie(1, "M")]);
       setupTmdbSuccess();
 
-      await act(async () => {
-        render(
+      render(
           <TraktSection type="trending" mediaType="movies" title="My Custom Title" />,
         );
-      });
 
-      expect(screen.getByTestId("row-title")).toHaveTextContent("My Custom Title");
+        await waitFor(() => {
+          expect(screen.getByTestId("row-title")).toHaveTextContent("My Custom Title");
+        });
     });
   });
 });

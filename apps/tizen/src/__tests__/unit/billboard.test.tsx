@@ -36,7 +36,8 @@ describe("Billboard", () => {
 
   it("renders content rating badge when provided", () => {
     render(<Billboard title="Inception" contentRating="PG-13" />);
-    expect(screen.getByText("PG-13")).toBeInTheDocument();
+    // ContentRatingBadge renders an <img> with alt text for known ratings
+    expect(screen.getByAltText("PG-13")).toBeInTheDocument();
   });
 
   it("does not render content rating badge when not provided", () => {
