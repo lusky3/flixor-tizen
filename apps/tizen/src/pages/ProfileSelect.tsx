@@ -5,6 +5,7 @@ import {
   FocusContext,
 } from "@noriginmedia/norigin-spatial-navigation";
 import { flixor } from "../services/flixor";
+import { cacheService } from "../services/cache";
 import type { PlexHomeUser } from "@flixor/core";
 
 /* ------------------------------------------------------------------ */
@@ -30,7 +31,12 @@ function PinDialog({ user, error, submitting, onSubmit, onCancel }: PinDialogPro
 
   // Focus the dialog container on mount so spatial nav owns focus
   useEffect(() => {
-    const timer = setTimeout(() => focusSelf(), 50);
+    const timer = setTimeout(() => {
+      focusSelf();
+      // Also give browser focus to the input so the user can type immediately
+      const el = inputRef.current as HTMLInputElement | null;
+      el?.focus();
+    }, 100);
     return () => clearTimeout(timer);
   }, [focusSelf]);
 
@@ -174,6 +180,8 @@ export function ProfileSelect() {
     async (user: PlexHomeUser, pin?: string) => {
       try {
         await flixor.switchToProfile(user, pin);
+        // Clear all caches so Home loads fresh data for the new profile
+        cacheService.clear();
         navigate("/");
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Failed to switch profile";

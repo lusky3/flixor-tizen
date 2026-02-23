@@ -214,10 +214,18 @@ export function BrowsePage() {
     (location.state as any)?.title || getSourceTitle(source);
 
   const { ref: gridRef, focusKey } = useFocusable({ trackChildren: true });
-  const { ref: browsePageRef, focusKey: browsePageFocusKey } = useFocusable({
+  const { ref: browsePageRef, focusKey: browsePageFocusKey, focusSelf } = useFocusable({
     focusKey: "browse-page",
     trackChildren: true,
   });
+
+  // Focus the page once content loads so D-PAD navigation works
+  useEffect(() => {
+    if (!loading) {
+      const timer = setTimeout(() => focusSelf(), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, focusSelf]);
 
   useEffect(() => {
     let cancelled = false;

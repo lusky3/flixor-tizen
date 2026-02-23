@@ -50,7 +50,7 @@ export function SettingsPage() {
   const [settings, setSettings] = useState<TizenSettings>(loadSettings);
   const [screen, setScreen] = useState<SettingsScreen>("main");
 
-  const { ref: pageRef, focusKey: pageFocusKey } = useFocusable({ trackChildren: true });
+  const { ref: pageRef, focusKey: pageFocusKey, focusSelf } = useFocusable({ trackChildren: true });
 
   const updateSetting = useCallback(<K extends keyof TizenSettings>(key: K, value: TizenSettings[K]) => {
     const next = saveSettings({ [key]: value });
@@ -111,6 +111,12 @@ export function SettingsPage() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [screen, navigate]);
+
+  // Focus the page on mount so D-PAD navigation works
+  useEffect(() => {
+    const timer = setTimeout(() => focusSelf(), 100);
+    return () => clearTimeout(timer);
+  }, [focusSelf]);
 
   // Render sub-screen content
   if (screen !== "main") {

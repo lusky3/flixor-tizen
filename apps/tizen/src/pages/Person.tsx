@@ -18,10 +18,18 @@ export function PersonPage() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const { ref: pageRef, focusKey: pageFocusKey } = useFocusable({
+  const { ref: pageRef, focusKey: pageFocusKey, focusSelf } = useFocusable({
     focusKey: "person-page",
     trackChildren: true,
   });
+
+  // Focus the page once content loads so D-PAD navigation works
+  useEffect(() => {
+    if (!loading) {
+      const timer = setTimeout(() => focusSelf(), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, focusSelf]);
 
   useEffect(() => {
     const loadPerson = async () => {

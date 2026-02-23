@@ -5,6 +5,7 @@ import { Home } from "../../pages/Home";
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", () => ({
   useNavigate: () => mockNavigate,
+  useLocation: () => ({ pathname: "/", key: "default" }),
 }));
 
 vi.mock("@noriginmedia/norigin-spatial-navigation", () => ({
@@ -18,6 +19,7 @@ vi.mock("@noriginmedia/norigin-spatial-navigation", () => ({
   FocusContext: {
     Provider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   },
+  setFocus: vi.fn(),
   init: vi.fn(),
 }));
 
@@ -175,7 +177,7 @@ describe("Home", () => {
     expect(screen.getByText("Collections")).toBeInTheDocument();
   });
 
-  it("renders billboard for first hero item", async () => {
+  it("renders billboard for first hero item when hero layout is hidden", async () => {
     mockGetContinueWatching.mockResolvedValue({
       items: [
         { ratingKey: "1", title: "Featured Movie", thumb: "/t.jpg", art: "/a.jpg", type: "movie", summary: "Great film" },
@@ -183,10 +185,14 @@ describe("Home", () => {
     });
     mockGetMetadata.mockResolvedValue({});
     mockGetLibraries.mockResolvedValue([]);
+    // Billboard only renders when heroLayout is "hidden"
+    const origLayout = mockSettings.heroLayout;
+    mockSettings.heroLayout = "hidden";
     await act(async () => {
       render(<Home />);
     });
     expect(screen.getByTestId("billboard")).toBeInTheDocument();
+    mockSettings.heroLayout = origLayout;
   });
 
   it("renders watchlist row when items exist", async () => {

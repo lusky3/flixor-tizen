@@ -20,10 +20,16 @@ export function SearchPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const { ref: pageRef, focusKey: pageFocusKey } = useFocusable({
+  const { ref: pageRef, focusKey: pageFocusKey, focusSelf } = useFocusable({
     focusKey: "search-page",
     trackChildren: true,
   });
+
+  // Focus the page on mount so D-PAD navigation works
+  useEffect(() => {
+    const timer = setTimeout(() => focusSelf(), 100);
+    return () => clearTimeout(timer);
+  }, [focusSelf]);
 
   useEffect(() => {
     const loadTrending = async () => {

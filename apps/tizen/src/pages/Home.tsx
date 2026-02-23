@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { useFocusable, FocusContext } from "@noriginmedia/norigin-spatial-navigation";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useFocusable, FocusContext, setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import { flixor } from "../services/flixor";
 import { loadSettings } from "../services/settings";
 import * as tmdbService from "../services/tmdb";
@@ -35,14 +35,23 @@ export function Home() {
   const [activeBackdrop, setActiveBackdrop] = useState<string | null>(null);
   const [ultraBlurColors, setUltraBlurColors] = useState<UltraBlurColors | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const { ref: pageRef, focusKey: pageFocusKey } = useFocusable({
+  const { ref: pageRef, focusKey: pageFocusKey, focusSelf } = useFocusable({
     focusKey: "home-page",
     trackChildren: true,
     isFocusBoundary: false,
   });
 
   useEffect(() => {
+    // Reset state so stale data from a previous profile doesn't linger
+    setLoading(true);
+    setHeroItems([]);
+    setRows([]);
+    setContinueWatchingItems([]);
+    setActiveBackdrop(null);
+    setUltraBlurColors(null);
+
     const fetchContinueWatching = async () => {
       const settings = loadSettings();
       if (settings.showContinueWatchingRow === false) return [];
@@ -259,7 +268,17 @@ export function Home() {
     };
 
     loadContent();
-  }, [navigate]);
+  }, [navigate, location.key]);
+
+  // Focus the hero carousel once content has loaded so D-PAD navigation works
+  useEffect(() => {
+    if (!loading) {
+      const timer = setTimeout(() => {
+        setFocus("hero-carousel");
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [loading]);
 
   const handleItemClick = useCallback(
     (item: PlexMediaItem) => navigate(`/details/${item.ratingKey}`),
@@ -375,6 +394,12 @@ export function Home() {
       })()}
 
       {heroItems.length > 0 && (() => {
+        const settings = loadSettings();
+        const layout = settings.heroLayout ?? "carousel";
+        // Only show Billboard when the hero carousel/static hero is hidden,
+        // otherwise the same backdrop image appears twice ("repeating" effect)
+        if (layout !== "hidden") return null;
+
         const featured = heroItems[0];
         const backdropUrl = featured.art?.startsWith("http")
           ? featured.art
