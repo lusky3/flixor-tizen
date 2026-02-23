@@ -1,11 +1,17 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useFocusable, FocusContext } from "@noriginmedia/norigin-spatial-navigation";
+import {
+  useFocusable,
+  FocusContext,
+} from "@noriginmedia/norigin-spatial-navigation";
 import type { PlexMediaItem } from "@flixor/core";
 import { TopNav } from "../components/TopNav";
 import { MediaCard } from "../components/MediaCard";
 import { getWatchlist as plexTvGetWatchlist } from "../services/plextv";
-import { getWatchlist as traktGetWatchlist, isAuthenticated as traktIsAuthenticated } from "../services/trakt";
+import {
+  getWatchlist as traktGetWatchlist,
+  isAuthenticated as traktIsAuthenticated,
+} from "../services/trakt";
 import { getDetails as tmdbGetDetails, buildImageUrl } from "../services/tmdb";
 
 type MergedItem = PlexMediaItem & { _source?: string; _tmdbPoster?: string };
@@ -15,7 +21,11 @@ export function MyListPage() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const { ref: pageRef, focusKey: pageFocusKey, focusSelf } = useFocusable({
+  const {
+    ref: pageRef,
+    focusKey: pageFocusKey,
+    focusSelf,
+  } = useFocusable({
     focusKey: "mylist-page",
     trackChildren: true,
   });
@@ -39,16 +49,18 @@ export function MyListPage() {
         try {
           const plexItems = await plexTvGetWatchlist();
           for (const item of plexItems) {
-            const guids = (item as any).Guid || [];
-            const tmdbGuid = guids.find((g: any) => String(g.id).includes("tmdb://"));
-            const tmdbId = tmdbGuid ? String(tmdbGuid.id).split("://")[1] : null;
+            const guids = item.Guid || [];
+            const tmdbGuid = guids.find((g) => g.id.includes("tmdb://"));
+            const tmdbId = tmdbGuid ? tmdbGuid.id.split("://")[1] : null;
             const key = tmdbId ? `tmdb:${tmdbId}` : `plex:${item.ratingKey}`;
             if (!seen.has(key)) {
               seen.add(key);
               merged.push({ ...item, _source: "plex" });
             }
           }
-        } catch { /* ignore plex error */ }
+        } catch {
+          /* ignore plex error */
+        }
 
         // Fetch Trakt watchlist if authenticated via service wrapper
         if (traktIsAuthenticated()) {
@@ -58,7 +70,9 @@ export function MyListPage() {
               const media = wlItem.movie || wlItem.show;
               if (!media) continue;
               const tmdbId = media.ids?.tmdb;
-              const key = tmdbId ? `tmdb:${tmdbId}` : `trakt:${media.ids?.slug}`;
+              const key = tmdbId
+                ? `tmdb:${tmdbId}`
+                : `trakt:${media.ids?.slug}`;
               if (seen.has(key)) continue;
               seen.add(key);
 
@@ -67,11 +81,16 @@ export function MyListPage() {
               if (tmdbId) {
                 try {
                   const mediaType = wlItem.type === "movie" ? "movie" : "tv";
-                  const details = await tmdbGetDetails(tmdbId, mediaType as "movie" | "tv");
-                  if ((details as any)?.poster_path) {
-                    poster = buildImageUrl((details as any).poster_path, "poster");
+                  const details = await tmdbGetDetails(
+                    tmdbId,
+                    mediaType as "movie" | "tv",
+                  );
+                  if (details?.poster_path) {
+                    poster = buildImageUrl(details.poster_path, "poster");
                   }
-                } catch { /* ignore */ }
+                } catch {
+                  /* ignore */
+                }
               }
 
               merged.push({
@@ -81,13 +100,15 @@ export function MyListPage() {
                 art: "",
                 type: wlItem.type === "movie" ? "movie" : "show",
                 year: media.year,
-                summary: (media as any).overview || "",
+                summary: media.overview || "",
                 duration: 0,
                 _source: "trakt",
                 _tmdbPoster: poster,
               } as MergedItem);
             }
-          } catch { /* ignore trakt error */ }
+          } catch {
+            /* ignore trakt error */
+          }
         }
 
         setItems(merged);
@@ -104,42 +125,40 @@ export function MyListPage() {
     <FocusContext.Provider value={pageFocusKey}>
       <div ref={pageRef} className="tv-container pt-nav">
         <TopNav />
-      <div className="mylist-header">
-        <h1 className="library-title">My List</h1>
-        <p className="mylist-subtitle">{items.length} titles</p>
-      </div>
-
-      {loading && <div className="loading">Loading Watchlist...</div>}
-
-      {!loading && items.length === 0 && (
-        <div className="empty-state">
-          <div className="empty-icon">📺</div>
-          <h2>Your list is empty</h2>
-          <p>Add movies and shows to your watchlist to see them here.</p>
-          <button className="btn-primary" onClick={() => navigate("/")}>
-            Browse Home
-          </button>
+        <div className="mylist-header">
+          <h1 className="library-title">My List</h1>
+          <p className="mylist-subtitle">{items.length} titles</p>
         </div>
-      )}
 
-      {!loading && items.length > 0 && (
-        <div className="tv-grid" style={{ padding: "0 80px 100px" }}>
-          {items.map((item) => (
-            <MediaCard
-              key={item.ratingKey}
-              item={item}
-              variant="poster"
-              onClick={() => {
-                if (item.ratingKey.startsWith("trakt-")) return;
-                navigate(`/details/${item.ratingKey}`);
-              }}
-            />
-          ))}
-        </div>
-      )}
+        {loading && <div className="loading">Loading Watchlist...</div>}
+
+        {!loading && items.length === 0 && (
+          <div className="empty-state">
+            <div className="empty-icon">📺</div>
+            <h2>Your list is empty</h2>
+            <p>Add movies and shows to your watchlist to see them here.</p>
+            <button className="btn-primary" onClick={() => navigate("/")}>
+              Browse Home
+            </button>
+          </div>
+        )}
+
+        {!loading && items.length > 0 && (
+          <div className="tv-grid" style={{ padding: "0 80px 100px" }}>
+            {items.map((item) => (
+              <MediaCard
+                key={item.ratingKey}
+                item={item}
+                variant="poster"
+                onClick={() => {
+                  if (item.ratingKey.startsWith("trakt-")) return;
+                  navigate(`/details/${item.ratingKey}`);
+                }}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </FocusContext.Provider>
   );
 }
-
-

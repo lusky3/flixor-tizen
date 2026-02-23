@@ -35,6 +35,8 @@ import type Hls from "hls.js";
 import type { MediaPlayerClass } from "dashjs";
 import type { PlexMediaItem, PlexMarker, PlexStream } from "@flixor/core";
 
+const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
+
 export function PlayerPage() {
   const { ratingKey } = useParams<{ ratingKey: string }>();
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -354,8 +356,6 @@ export function PlayerPage() {
     const url = await flixor.plexServer.getStreamUrl(ratingKey, selectedMedia);
     setVideoUrl(url);
   };
-
-  const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
 
   const handleSpeedChange = useCallback((speed: number) => {
     setPlaybackSpeed(speed);

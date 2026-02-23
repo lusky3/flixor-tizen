@@ -1,37 +1,104 @@
-import { useState, useEffect, useCallback, useRef, forwardRef } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import {
   useFocusable,
   FocusContext,
 } from "@noriginmedia/norigin-spatial-navigation";
-import { loadSettings, saveSettings, setDiscoveryDisabled } from "../services/settings";
+import {
+  loadSettings,
+  saveSettings,
+  setDiscoveryDisabled,
+} from "../services/settings";
 
 const TOTAL_SLIDES = 4;
 
 // ── Slide icons (inline SVG paths for zero-dependency illustrations) ───
 
-const ICONS: Record<string, JSX.Element> = {
+const ICONS: Record<string, React.ReactNode> = {
   welcome: (
-    <svg width="80" height="80" viewBox="0 0 80 80" fill="none" aria-hidden="true">
+    <svg
+      width="80"
+      height="80"
+      viewBox="0 0 80 80"
+      fill="none"
+      aria-hidden="true"
+    >
       <circle cx="40" cy="40" r="38" stroke="#e50914" strokeWidth="3" />
       <polygon points="32,24 60,40 32,56" fill="#e50914" />
     </svg>
   ),
   discovery: (
-    <svg width="80" height="80" viewBox="0 0 80 80" fill="none" aria-hidden="true">
+    <svg
+      width="80"
+      height="80"
+      viewBox="0 0 80 80"
+      fill="none"
+      aria-hidden="true"
+    >
       <circle cx="34" cy="34" r="20" stroke="#e5e5e5" strokeWidth="3" />
-      <line x1="48" y1="48" x2="68" y2="68" stroke="#e5e5e5" strokeWidth="3" strokeLinecap="round" />
+      <line
+        x1="48"
+        y1="48"
+        x2="68"
+        y2="68"
+        stroke="#e5e5e5"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
     </svg>
   ),
   library: (
-    <svg width="80" height="80" viewBox="0 0 80 80" fill="none" aria-hidden="true">
-      <rect x="10" y="16" width="18" height="48" rx="3" stroke="#e5e5e5" strokeWidth="3" />
-      <rect x="32" y="10" width="18" height="54" rx="3" stroke="#e5e5e5" strokeWidth="3" />
-      <rect x="54" y="20" width="18" height="44" rx="3" stroke="#e5e5e5" strokeWidth="3" />
+    <svg
+      width="80"
+      height="80"
+      viewBox="0 0 80 80"
+      fill="none"
+      aria-hidden="true"
+    >
+      <rect
+        x="10"
+        y="16"
+        width="18"
+        height="48"
+        rx="3"
+        stroke="#e5e5e5"
+        strokeWidth="3"
+      />
+      <rect
+        x="32"
+        y="10"
+        width="18"
+        height="54"
+        rx="3"
+        stroke="#e5e5e5"
+        strokeWidth="3"
+      />
+      <rect
+        x="54"
+        y="20"
+        width="18"
+        height="44"
+        rx="3"
+        stroke="#e5e5e5"
+        strokeWidth="3"
+      />
     </svg>
   ),
   config: (
-    <svg width="80" height="80" viewBox="0 0 80 80" fill="none" aria-hidden="true">
+    <svg
+      width="80"
+      height="80"
+      viewBox="0 0 80 80"
+      fill="none"
+      aria-hidden="true"
+    >
       <circle cx="40" cy="40" r="14" stroke="#e5e5e5" strokeWidth="3" />
       <circle cx="40" cy="40" r="6" fill="#e5e5e5" />
       {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
@@ -63,10 +130,14 @@ const SLIDE_BACKGROUNDS: string[] = [
 // ── Toggle descriptions ────────────────────────────────────────────────
 
 const TOGGLE_DESCRIPTIONS: Record<string, string> = {
-  "Library Only Mode": "Only show your Plex library content, hide all external sources.",
-  "Show Trending Rows": "Display trending movies and shows from TMDB on the home screen.",
-  "Show Trakt Rows": "Show your Trakt watchlist, recommendations, and trending content.",
-  "Include TMDB in Search": "Include TMDB results alongside Plex when searching.",
+  "Library Only Mode":
+    "Only show your Plex library content, hide all external sources.",
+  "Show Trending Rows":
+    "Display trending movies and shows from TMDB on the home screen.",
+  "Show Trakt Rows":
+    "Show your Trakt watchlist, recommendations, and trending content.",
+  "Include TMDB in Search":
+    "Include TMDB results alongside Plex when searching.",
 };
 
 // ── OnboardingToggle ───────────────────────────────────────────────────
@@ -79,7 +150,13 @@ interface ToggleItemProps {
   onChange: (val: boolean) => void;
 }
 
-function OnboardingToggle({ label, description, checked, disabled, onChange }: ToggleItemProps) {
+function OnboardingToggle({
+  label,
+  description,
+  checked,
+  disabled,
+  onChange,
+}: ToggleItemProps) {
   const { ref, focused } = useFocusable({
     onEnterPress: () => {
       if (!disabled) onChange(!checked);
@@ -102,25 +179,31 @@ function OnboardingToggle({ label, description, checked, disabled, onChange }: T
       }}
     >
       <div style={toggleStyles.labelBlock}>
-        <span style={{
-          ...toggleStyles.label,
-          ...(disabled ? toggleStyles.labelDisabled : undefined),
-        }}>
+        <span
+          style={{
+            ...toggleStyles.label,
+            ...(disabled ? toggleStyles.labelDisabled : undefined),
+          }}
+        >
           {label}
         </span>
         {description && (
-          <span style={{
-            ...toggleStyles.description,
-            ...(disabled ? toggleStyles.descDisabled : undefined),
-          }}>
+          <span
+            style={{
+              ...toggleStyles.description,
+              ...(disabled ? toggleStyles.descDisabled : undefined),
+            }}
+          >
             {description}
           </span>
         )}
       </div>
-      <span style={{
-        ...toggleStyles.indicator,
-        ...(isOn ? toggleStyles.indicatorOn : toggleStyles.indicatorOff),
-      }}>
+      <span
+        style={{
+          ...toggleStyles.indicator,
+          ...(isOn ? toggleStyles.indicatorOn : toggleStyles.indicatorOff),
+        }}
+      >
         {isOn ? "ON" : "OFF"}
       </span>
     </div>
@@ -191,23 +274,26 @@ const toggleStyles = {
 
 // ── NavButton ──────────────────────────────────────────────────────────
 
-const NavButton = forwardRef<HTMLButtonElement, {
-  label: string;
-  variant: "primary" | "secondary";
-  onClick: () => void;
-}>(function NavButton({ label, variant, onClick }, fwdRef) {
+const NavButton = forwardRef<
+  HTMLButtonElement,
+  {
+    label: string;
+    variant: "primary" | "secondary";
+    onClick: () => void;
+  }
+>(function NavButton({ label, variant, onClick }, fwdRef) {
   const { ref, focused } = useFocusable({ onEnterPress: onClick });
+
+  useImperativeHandle(fwdRef, () => ref.current as HTMLButtonElement);
 
   return (
     <button
-      ref={(el) => {
-        (ref as React.MutableRefObject<HTMLButtonElement | null>).current = el;
-        if (typeof fwdRef === "function") fwdRef(el);
-        else if (fwdRef) (fwdRef as React.MutableRefObject<HTMLButtonElement | null>).current = el;
-      }}
+      ref={ref}
       style={{
         ...navBtnStyles.base,
-        ...(variant === "primary" ? navBtnStyles.primary : navBtnStyles.secondary),
+        ...(variant === "primary"
+          ? navBtnStyles.primary
+          : navBtnStyles.secondary),
         ...(focused ? navBtnStyles.focused : undefined),
       }}
       onClick={onClick}
@@ -249,17 +335,31 @@ const navBtnStyles = {
 export function Onboarding() {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [slideDirection, setSlideDirection] = useState<"left" | "right">("right");
+  const [slideDirection, setSlideDirection] = useState<"left" | "right">(
+    "right",
+  );
 
   const initial = loadSettings();
-  const [libraryOnlyMode, setLibraryOnlyMode] = useState(initial.libraryOnlyMode ?? false);
-  const [showTrendingRows, setShowTrendingRows] = useState(initial.showTrendingRows ?? true);
-  const [showTraktRows, setShowTraktRows] = useState(initial.showTraktRows ?? true);
-  const [includeTmdbInSearch, setIncludeTmdbInSearch] = useState(initial.includeTmdbInSearch ?? true);
+  const [libraryOnlyMode, setLibraryOnlyMode] = useState(
+    initial.libraryOnlyMode ?? false,
+  );
+  const [showTrendingRows, setShowTrendingRows] = useState(
+    initial.showTrendingRows ?? true,
+  );
+  const [showTraktRows, setShowTraktRows] = useState(
+    initial.showTraktRows ?? true,
+  );
+  const [includeTmdbInSearch, setIncludeTmdbInSearch] = useState(
+    initial.includeTmdbInSearch ?? true,
+  );
 
   const primaryBtnRef = useRef<HTMLButtonElement>(null);
 
-  const { ref: containerRef, focusKey: containerFocusKey, focusSelf } = useFocusable({
+  const {
+    ref: containerRef,
+    focusKey: containerFocusKey,
+    focusSelf,
+  } = useFocusable({
     trackChildren: true,
     isFocusBoundary: true,
     onArrowPress: (direction) => {
@@ -306,7 +406,13 @@ export function Onboarding() {
       onboardingCompleted: true,
     });
     navigate("/login");
-  }, [libraryOnlyMode, showTrendingRows, showTraktRows, includeTmdbInSearch, navigate]);
+  }, [
+    libraryOnlyMode,
+    showTrendingRows,
+    showTraktRows,
+    includeTmdbInSearch,
+    navigate,
+  ]);
 
   const skipOnboarding = useCallback(() => {
     saveSettings({ onboardingCompleted: true });
@@ -381,7 +487,11 @@ export function Onboarding() {
           {currentSlide > 0 && (
             <NavButton label="Back" variant="secondary" onClick={prevSlide} />
           )}
-          <NavButton label="Skip" variant="secondary" onClick={skipOnboarding} />
+          <NavButton
+            label="Skip"
+            variant="secondary"
+            onClick={skipOnboarding}
+          />
           {isLastSlide ? (
             <NavButton
               ref={primaryBtnRef}

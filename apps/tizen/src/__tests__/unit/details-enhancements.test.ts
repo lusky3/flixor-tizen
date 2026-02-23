@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { deriveMoods } from "../../components/MoodTags";
+import { deriveMoods } from "../../utils/moodTagsUtils";
 import { buildChips } from "../../components/TechnicalChips";
 import { detectAccessibilityBadges } from "../../components/AccessibilityBadges";
-import { getProgressDisplay } from "../../components/EpisodeLandscapeCard";
+import { getProgressDisplay } from "../../utils/episodeCardUtils";
 
 /**
  * Unit tests for Details page enhancements:

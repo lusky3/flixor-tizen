@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
-import { useFocusable, FocusContext } from "@noriginmedia/norigin-spatial-navigation";
+import {
+  useFocusable,
+  FocusContext,
+} from "@noriginmedia/norigin-spatial-navigation";
 import { flixor } from "../services/flixor";
 import * as tmdbService from "../services/tmdb";
 import { TopNav } from "../components/TopNav";
 import { SmartImage } from "../components/SmartImage";
-import type { TMDBPerson, TMDBMedia } from "@flixor/core";
+import type { TMDBPerson, TMDBMedia, TMDBPersonCreditItem } from "@flixor/core";
 
 export function PersonPage() {
   const { id } = useParams<{ id: string }>();
@@ -18,7 +21,11 @@ export function PersonPage() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const { ref: pageRef, focusKey: pageFocusKey, focusSelf } = useFocusable({
+  const {
+    ref: pageRef,
+    focusKey: pageFocusKey,
+    focusSelf,
+  } = useFocusable({
     focusKey: "person-page",
     trackChildren: true,
   });
@@ -53,17 +60,17 @@ export function PersonPage() {
           setPerson(details);
 
           const movieCredits = (creditData?.cast || [])
-            .filter((c: TMDBMedia) => c.media_type === "movie")
+            .filter((c: TMDBPersonCreditItem) => c.media_type === "movie")
             .sort(
-              (a: TMDBMedia, b: TMDBMedia) =>
+              (a: TMDBPersonCreditItem, b: TMDBPersonCreditItem) =>
                 (b.popularity || 0) - (a.popularity || 0),
             )
             .slice(0, 15);
 
           const tvCredits = (creditData?.cast || [])
-            .filter((c: TMDBMedia) => c.media_type === "tv")
+            .filter((c: TMDBPersonCreditItem) => c.media_type === "tv")
             .sort(
-              (a: TMDBMedia, b: TMDBMedia) =>
+              (a: TMDBPersonCreditItem, b: TMDBPersonCreditItem) =>
                 (b.popularity || 0) - (a.popularity || 0),
             )
             .slice(0, 15);
@@ -98,74 +105,76 @@ export function PersonPage() {
       <div ref={pageRef} className="tv-container pt-nav">
         <TopNav />
 
-      <div className="person-header">
-        <div className="person-profile-container">
-          {person.profile_path ? (
-            <SmartImage
-              src={person.profile_path}
-              alt={person.name}
-              kind="profile"
-              className="person-profile-img"
-              useTmdb
-            />
-          ) : (
-            <div className="person-profile-placeholder">{person.name[0]}</div>
-          )}
-        </div>
-        <div className="person-info">
-          <h1 className="person-name">{person.name}</h1>
-          <p className="person-bio">
-            {person.biography || "No biography available."}
-          </p>
-          <div className="person-meta">
-            {person.birthday && <span>Born: {person.birthday}</span>}
-            {person.place_of_birth && (
-              <span>Place of Birth: {person.place_of_birth}</span>
+        <div className="person-header">
+          <div className="person-profile-container">
+            {person.profile_path ? (
+              <SmartImage
+                src={person.profile_path}
+                alt={person.name}
+                kind="profile"
+                className="person-profile-img"
+                useTmdb
+              />
+            ) : (
+              <div className="person-profile-placeholder">{person.name[0]}</div>
             )}
           </div>
-        </div>
-      </div>
-
-      {credits.map((group) => (
-        <div key={group.title} className="person-section">
-          <h2 className="section-title">{group.title}</h2>
-          <div className="tv-row">
-            {group.items.map((item: any) => (
-              <button
-                key={item.id + item.media_type}
-                className="media-card-wrapper"
-                onClick={async () => {
-                  const guid = `tmdb://${item.id}`;
-                  const plexItems = await flixor.plexServer.findByGuid(
-                    guid,
-                    item.media_type === "movie" ? 1 : 2,
-                  );
-                  if (plexItems.length > 0) {
-                    navigate(`/details/${plexItems[0].ratingKey}`);
-                  }
-                }}
-              >
-                <div className="media-card poster">
-                  <SmartImage
-                    src={item.poster_path}
-                    alt={item.title || item.name}
-                    kind="poster"
-                    className="card-img"
-                    useTmdb
-                  />
-                  <div className="card-info">
-                    <div className="card-title">{item.title || item.name}</div>
-                    <div className="card-meta">
-                      {item.release_date?.split("-")[0] ||
-                        item.first_air_date?.split("-")[0]}
-                    </div>
-                  </div>
-                </div>
-              </button>
-            ))}
+          <div className="person-info">
+            <h1 className="person-name">{person.name}</h1>
+            <p className="person-bio">
+              {person.biography || "No biography available."}
+            </p>
+            <div className="person-meta">
+              {person.birthday && <span>Born: {person.birthday}</span>}
+              {person.place_of_birth && (
+                <span>Place of Birth: {person.place_of_birth}</span>
+              )}
+            </div>
           </div>
         </div>
-      ))}
+
+        {credits.map((group) => (
+          <div key={group.title} className="person-section">
+            <h2 className="section-title">{group.title}</h2>
+            <div className="tv-row">
+              {group.items.map((item: TMDBMedia) => (
+                <button
+                  key={item.id + (item.media_type || "")}
+                  className="media-card-wrapper"
+                  onClick={async () => {
+                    const guid = `tmdb://${item.id}`;
+                    const plexItems = await flixor.plexServer.findByGuid(
+                      guid,
+                      item.media_type === "movie" ? 1 : 2,
+                    );
+                    if (plexItems.length > 0) {
+                      navigate(`/details/${plexItems[0].ratingKey}`);
+                    }
+                  }}
+                >
+                  <div className="media-card poster">
+                    <SmartImage
+                      src={item.poster_path || ""}
+                      alt={item.title || item.name || ""}
+                      kind="poster"
+                      className="card-img"
+                      useTmdb
+                    />
+                    <div className="card-info">
+                      <div className="card-title">
+                        {item.title || item.name}
+                      </div>
+                      <div className="card-meta">
+                        {item.release_date?.split("-")[0] ||
+                          item.first_air_date?.split("-")[0]}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </FocusContext.Provider>
   );

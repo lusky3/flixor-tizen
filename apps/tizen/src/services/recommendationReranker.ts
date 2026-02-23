@@ -73,5 +73,6 @@ export function rerankCandidates(
   scored.sort((a, b) => b._score - a._score);
 
   // Strip _score from output
-  return scored.map(({ _score, ...rest }) => rest);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    return scored.map(({ _score: _, ...rest }) => rest);
 }

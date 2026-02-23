@@ -20,29 +20,24 @@ interface PinDialogProps {
   onCancel: () => void;
 }
 
-function PinDialog({ user, error, submitting, onSubmit, onCancel }: PinDialogProps) {
+function PinDialog({
+  user,
+  error,
+  submitting,
+  onSubmit,
+  onCancel,
+}: PinDialogProps) {
   const [pin, setPin] = useState("");
 
-  const { ref: dialogRef, focusKey: dialogFocusKey, focusSelf } = useFocusable({
+  const {
+    ref: dialogRef,
+    focusKey: dialogFocusKey,
+    focusSelf,
+  } = useFocusable({
     focusKey: "pin-dialog",
     trackChildren: true,
     isFocusBoundary: true,
   });
-
-  // Focus the dialog container on mount so spatial nav owns focus
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      focusSelf();
-      // Also give browser focus to the input so the user can type immediately
-      const el = inputRef.current as HTMLInputElement | null;
-      el?.focus();
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [focusSelf]);
-
-  const handleSubmit = useCallback(() => {
-    if (pin.length === 4 && !submitting) onSubmit(pin);
-  }, [pin, submitting, onSubmit]);
 
   const { ref: inputRef, focused: inputFocused } = useFocusable({
     onEnterPress: () => {
@@ -57,6 +52,21 @@ function PinDialog({ user, error, submitting, onSubmit, onCancel }: PinDialogPro
       return false;
     },
   });
+
+  // Focus the dialog container on mount so spatial nav owns focus
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      focusSelf();
+      // Also give browser focus to the input so the user can type immediately
+      const el = inputRef.current as HTMLInputElement | null;
+      el?.focus();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [focusSelf, inputRef]);
+
+  const handleSubmit = useCallback(() => {
+    if (pin.length === 4 && !submitting) onSubmit(pin);
+  }, [pin, submitting, onSubmit]);
 
   const { ref: submitRef, focused: submitFocused } = useFocusable({
     onEnterPress: handleSubmit,
@@ -112,7 +122,6 @@ function PinDialog({ user, error, submitting, onSubmit, onCancel }: PinDialogPro
   );
 }
 
-
 /* ------------------------------------------------------------------ */
 /*  Profile Card                                                       */
 /* ------------------------------------------------------------------ */
@@ -143,7 +152,11 @@ function ProfileCard({ user, disabled, onSelect }: ProfileCardProps) {
     >
       <div className="profile-avatar">
         {user.thumb ? (
-          <img src={user.thumb} alt={user.title} className="profile-avatar-img" />
+          <img
+            src={user.thumb}
+            alt={user.title}
+            className="profile-avatar-img"
+          />
         ) : (
           <span className="profile-avatar-initial">{initial}</span>
         )}
@@ -170,7 +183,11 @@ export function ProfileSelect() {
   const [pinError, setPinError] = useState<string | null>(null);
   const [pinSubmitting, setPinSubmitting] = useState(false);
 
-  const { ref: containerRef, focusKey: containerFocusKey, focusSelf } = useFocusable({
+  const {
+    ref: containerRef,
+    focusKey: containerFocusKey,
+    focusSelf,
+  } = useFocusable({
     focusKey: "profile-select",
     trackChildren: true,
     isFocusBoundary: true,
@@ -184,7 +201,8 @@ export function ProfileSelect() {
         cacheService.clear();
         navigate("/");
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Failed to switch profile";
+        const message =
+          err instanceof Error ? err.message : "Failed to switch profile";
         // If this was a PIN attempt, surface the error in the dialog
         if (pin !== undefined) {
           setPinError(message);
@@ -232,7 +250,8 @@ export function ProfileSelect() {
       const list = await flixor.getHomeUsers();
       setUsers(list);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to fetch profiles";
+      const message =
+        err instanceof Error ? err.message : "Failed to fetch profiles";
       setError(message);
     } finally {
       setLoading(false);

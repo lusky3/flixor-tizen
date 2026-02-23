@@ -38,7 +38,8 @@ vi.mock("react-router-dom", () => ({
 
 let mockRouteParams: Record<string, string> = {};
 
-import { SeekSlider, clampSeek } from "../../components/SeekSlider";
+import { SeekSlider } from "../../components/SeekSlider";
+import { clampSeek } from "../../utils/seekSliderUtils";
 
 describe("SeekSlider – onArrowPress handler", () => {
   beforeEach(() => {

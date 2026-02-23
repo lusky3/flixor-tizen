@@ -20,9 +20,17 @@ export function RequestButton({ tmdbId, mediaType, onStatusChange }: RequestButt
   const [requesting, setRequesting] = useState(false);
   const { showToast } = useToast();
 
+  // Reset loading state when deps change (avoids synchronous setState in effect)
+  const [prevKey, setPrevKey] = useState(`${tmdbId}-${mediaType}`);
+  const currentKey = `${tmdbId}-${mediaType}`;
+  if (currentKey !== prevKey) {
+    setPrevKey(currentKey);
+    setLoading(true);
+    setStatus(null);
+  }
+
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     getOverseerrMediaStatus(tmdbId, mediaType).then((result) => {
       if (cancelled) return;
       setStatus(result);

@@ -96,6 +96,7 @@ export interface PlexMediaItem {
   parentThumb?: string;
   parentIndex?: number;
   index?: number;
+  extraType?: string;
 
   // Season specific
   leafCount?: number;

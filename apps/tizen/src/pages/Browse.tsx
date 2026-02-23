@@ -10,7 +10,15 @@ import { TopNav } from "../components/TopNav";
 import { PosterCard } from "../components/PosterCard";
 import { SkeletonRow } from "../components/SkeletonRow";
 import { getWatchlist } from "../services/plextv";
-import type { PlexMediaItem } from "@flixor/core";
+import type {
+  PlexMediaItem,
+  TMDBMedia,
+  TMDBMovieDetails,
+  TMDBTVDetails,
+  TraktWatchlistItem,
+  TraktMovie,
+  TraktTrendingMovie,
+} from "@flixor/core";
 
 const PAGE_SIZE = 20;
 
@@ -21,19 +29,22 @@ function getSourceTitle(source: string): string {
     "trending-shows": "Trending Shows",
     "recently-added-movies": "Recently Added Movies",
     "recently-added-shows": "Recently Added Shows",
-    "collections": "Collections",
+    collections: "Collections",
     "trakt-watchlist": "Trakt Watchlist",
     "trakt-recommended": "Recommended for You",
     "trakt-trending": "Trending on Trakt",
-    "watchlist": "Watchlist",
+    watchlist: "Watchlist",
   };
-  return titles[source] || source.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return (
+    titles[source] ||
+    source.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+  );
 }
 
 /** Enrich Trakt items with TMDB poster images */
 async function enrichTraktItems(items: PlexMediaItem[]): Promise<void> {
   await Promise.all(
-    items.map(async (item: any) => {
+    items.map(async (item) => {
       const guid: string = item.guid || "";
       const tmdbId = guid.replace("tmdb://", "");
       if (!tmdbId) return;
@@ -42,10 +53,19 @@ async function enrichTraktItems(items: PlexMediaItem[]): Promise<void> {
           .getMovieDetails(Number(tmdbId))
           .catch(() => flixor.tmdb.getTVDetails(Number(tmdbId)));
         if (details) {
-          const d = details as any;
-          item.thumb = flixor.tmdb.getPosterUrl(d.poster_path, "w500");
-          item.art = flixor.tmdb.getBackdropUrl(d.backdrop_path, "original");
-          item.summary = d.overview || "";
+          const d = details as TMDBMovieDetails | TMDBTVDetails;
+          const poster =
+            (d as TMDBMovieDetails).poster_path ||
+            (d as TMDBTVDetails).poster_path;
+          const backdrop =
+            (d as TMDBMovieDetails).backdrop_path ||
+            (d as TMDBTVDetails).backdrop_path;
+          const overview =
+            (d as TMDBMovieDetails).overview || (d as TMDBTVDetails).overview;
+
+          item.thumb = flixor.tmdb.getPosterUrl(poster || "", "w500");
+          item.art = flixor.tmdb.getBackdropUrl(backdrop || "", "original");
+          item.summary = overview || "";
         }
       } catch {
         /* ignore enrichment failures */
@@ -63,17 +83,23 @@ async function fetchSourceItems(
     case "trending-movies": {
       const res = await flixor.tmdb.getTrendingMovies("week", page);
       const items: PlexMediaItem[] = (res.results || []).map(
-        (m: any) =>
+        (m: TMDBMedia) =>
           ({
             ratingKey: `tmdb-movie-${m.id}`,
             title: (m.title || m.name) as string,
-            thumb: flixor.tmdb.getImageUrl(m.poster_path as string, "w500"),
-            art: flixor.tmdb.getImageUrl(m.backdrop_path as string, "original"),
+            thumb: flixor.tmdb.getImageUrl(
+              (m.poster_path as string) || "",
+              "w500",
+            ),
+            art: flixor.tmdb.getImageUrl(
+              (m.backdrop_path as string) || "",
+              "original",
+            ),
             year: ((m.release_date || "") as string).split("-")[0],
-            summary: m.overview as string,
+            summary: (m.overview as string) || "",
             duration: 0,
             guid: `tmdb://${m.id}`,
-          }) as any,
+          }) as unknown as PlexMediaItem,
       );
       return { items, hasMore: (res.page || page) < (res.total_pages || 1) };
     }
@@ -81,17 +107,23 @@ async function fetchSourceItems(
     case "trending-shows": {
       const res = await flixor.tmdb.getTrendingTV("week", page);
       const items: PlexMediaItem[] = (res.results || []).map(
-        (m: any) =>
+        (m: TMDBMedia) =>
           ({
             ratingKey: `tmdb-tv-${m.id}`,
             title: (m.name || m.title) as string,
-            thumb: flixor.tmdb.getImageUrl(m.poster_path as string, "w500"),
-            art: flixor.tmdb.getImageUrl(m.backdrop_path as string, "original"),
+            thumb: flixor.tmdb.getImageUrl(
+              (m.poster_path as string) || "",
+              "w500",
+            ),
+            art: flixor.tmdb.getImageUrl(
+              (m.backdrop_path as string) || "",
+              "original",
+            ),
             year: ((m.first_air_date || "") as string).split("-")[0],
-            summary: m.overview as string,
+            summary: (m.overview as string) || "",
             duration: 0,
             guid: `tmdb://${m.id}`,
-          }) as any,
+          }) as unknown as PlexMediaItem,
       );
       return { items, hasMore: (res.page || page) < (res.total_pages || 1) };
     }
@@ -124,7 +156,7 @@ async function fetchSourceItems(
     case "trakt-watchlist": {
       if (!flixor.trakt.isAuthenticated()) return { items: [], hasMore: false };
       const watchlist = await flixor.trakt.getWatchlist();
-      const mapped: PlexMediaItem[] = watchlist.map((w: any) => {
+      const mapped: PlexMediaItem[] = watchlist.map((w: TraktWatchlistItem) => {
         const media = w.movie || w.show;
         const ids = media?.ids || {};
         return {
@@ -135,7 +167,7 @@ async function fetchSourceItems(
           summary: "",
           duration: 0,
           guid: ids.tmdb ? `tmdb://${ids.tmdb}` : "",
-        } as any;
+        } as unknown as PlexMediaItem;
       });
       await enrichTraktItems(mapped);
       const offset = (page - 1) * PAGE_SIZE;
@@ -147,7 +179,7 @@ async function fetchSourceItems(
       if (!flixor.trakt.isAuthenticated()) return { items: [], hasMore: false };
       const recs = await flixor.trakt.getRecommendedMovies(page, PAGE_SIZE);
       const items: PlexMediaItem[] = recs.map(
-        (m: any) =>
+        (m: TraktMovie) =>
           ({
             ratingKey: `trakt-rec-${m.ids?.tmdb || m.ids?.trakt}`,
             title: m.title || "Unknown",
@@ -156,7 +188,7 @@ async function fetchSourceItems(
             summary: "",
             duration: 0,
             guid: m.ids?.tmdb ? `tmdb://${m.ids.tmdb}` : "",
-          }) as any,
+          }) as unknown as PlexMediaItem,
       );
       await enrichTraktItems(items);
       return { items, hasMore: items.length >= PAGE_SIZE };
@@ -165,8 +197,8 @@ async function fetchSourceItems(
     case "trakt-trending": {
       if (!flixor.trakt.isAuthenticated()) return { items: [], hasMore: false };
       const trending = await flixor.trakt.getTrendingMovies(page, PAGE_SIZE);
-      const items: PlexMediaItem[] = trending.map((t: any) => {
-        const m = t.movie || t;
+      const items: PlexMediaItem[] = trending.map((t: TraktTrendingMovie) => {
+        const m = t.movie;
         return {
           ratingKey: `trakt-trend-${m.ids?.tmdb || m.ids?.trakt}`,
           title: m.title || "Unknown",
@@ -175,7 +207,7 @@ async function fetchSourceItems(
           summary: "",
           duration: 0,
           guid: m.ids?.tmdb ? `tmdb://${m.ids.tmdb}` : "",
-        } as any;
+        } as unknown as PlexMediaItem;
       });
       await enrichTraktItems(items);
       return { items, hasMore: items.length >= PAGE_SIZE };
@@ -211,10 +243,14 @@ export function BrowsePage() {
 
   // Allow overriding the title via route state
   const title =
-    (location.state as any)?.title || getSourceTitle(source);
+    (location.state as { title?: string })?.title || getSourceTitle(source);
 
   const { ref: gridRef, focusKey } = useFocusable({ trackChildren: true });
-  const { ref: browsePageRef, focusKey: browsePageFocusKey, focusSelf } = useFocusable({
+  const {
+    ref: browsePageRef,
+    focusKey: browsePageFocusKey,
+    focusSelf,
+  } = useFocusable({
     focusKey: "browse-page",
     trackChildren: true,
   });
@@ -246,7 +282,9 @@ export function BrowsePage() {
       }
     };
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [source]);
 
   const loadMore = useCallback(async () => {
@@ -274,73 +312,98 @@ export function BrowsePage() {
 
   const handleFocus = (e: React.FocusEvent) => {
     const target = e.target as HTMLElement;
-    target.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+    target.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+      inline: "center",
+    });
   };
 
   return (
     <FocusContext.Provider value={browsePageFocusKey}>
-      <div ref={browsePageRef} className="tv-container pt-nav" onFocus={handleFocus}>
+      <div
+        ref={browsePageRef}
+        className="tv-container pt-nav"
+        onFocus={handleFocus}
+      >
         <TopNav />
 
-      <div style={{ display: "flex", alignItems: "center", gap: "16px", margin: "20px 80px 0" }}>
-        <button
-          className="btn-secondary"
-          onClick={handleBack}
-          tabIndex={0}
-          style={{ padding: "8px 16px", fontSize: "18px" }}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "16px",
+            margin: "20px 80px 0",
+          }}
         >
-          ← Back
-        </button>
-        <h1 className="library-title" style={{ margin: 0 }}>
-          {title}
-        </h1>
-      </div>
-
-      {loading ? (
-        <div style={{ padding: "0 80px" }}>
-          <SkeletonRow count={6} variant="poster" />
-          <SkeletonRow count={6} variant="poster" />
+          <button
+            className="btn-secondary"
+            onClick={handleBack}
+            tabIndex={0}
+            style={{ padding: "8px 16px", fontSize: "18px" }}
+          >
+            ← Back
+          </button>
+          <h1 className="library-title" style={{ margin: 0 }}>
+            {title}
+          </h1>
         </div>
-      ) : (
-        <FocusContext.Provider value={focusKey}>
-          <div ref={gridRef} className="tv-grid" style={{ padding: "20px 80px 100px" }}>
-            {items.map((item) => (
-              <PosterCard
-                key={item.ratingKey}
-                item={item}
-                onClick={() => handleItemClick(item)}
-              />
-            ))}
 
-            {items.length === 0 && (
-              <div
-                style={{
-                  gridColumn: "1/-1",
-                  textAlign: "center",
-                  padding: "60px",
-                  color: "rgba(255,255,255,0.4)",
-                  fontSize: "24px",
-                }}
-              >
-                No items found
-              </div>
-            )}
-
-            {hasMore && (
-              <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "30px" }}>
-                <button
-                  className="btn-secondary"
-                  onClick={loadMore}
-                  disabled={loadingMore}
-                  tabIndex={0}
-                >
-                  {loadingMore ? "Loading..." : "Load More"}
-                </button>
-              </div>
-            )}
+        {loading ? (
+          <div style={{ padding: "0 80px" }}>
+            <SkeletonRow count={6} variant="poster" />
+            <SkeletonRow count={6} variant="poster" />
           </div>
-        </FocusContext.Provider>
-      )}
+        ) : (
+          <FocusContext.Provider value={focusKey}>
+            <div
+              ref={gridRef}
+              className="tv-grid"
+              style={{ padding: "20px 80px 100px" }}
+            >
+              {items.map((item) => (
+                <PosterCard
+                  key={item.ratingKey}
+                  item={item}
+                  onClick={() => handleItemClick(item)}
+                />
+              ))}
+
+              {items.length === 0 && (
+                <div
+                  style={{
+                    gridColumn: "1/-1",
+                    textAlign: "center",
+                    padding: "60px",
+                    color: "rgba(255,255,255,0.4)",
+                    fontSize: "24px",
+                  }}
+                >
+                  No items found
+                </div>
+              )}
+
+              {hasMore && (
+                <div
+                  style={{
+                    gridColumn: "1/-1",
+                    textAlign: "center",
+                    padding: "30px",
+                  }}
+                >
+                  <button
+                    className="btn-secondary"
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                    tabIndex={0}
+                  >
+                    {loadingMore ? "Loading..." : "Load More"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </FocusContext.Provider>
+        )}
       </div>
     </FocusContext.Provider>
   );

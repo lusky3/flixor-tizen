@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { SeekSlider, formatTime, clampSeek, fillPercent } from "../../components/SeekSlider";
+import { SeekSlider } from "../../components/SeekSlider";
+import { formatTime, clampSeek, fillPercent } from "../../utils/seekSliderUtils";
 
 vi.mock("@noriginmedia/norigin-spatial-navigation", () => ({
   useFocusable: (opts?: any) => ({

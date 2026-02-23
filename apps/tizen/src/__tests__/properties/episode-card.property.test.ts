@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, it, expect } from "vitest";
-import { getProgressDisplay } from "../../components/EpisodeLandscapeCard";
+import { getProgressDisplay } from "../../utils/episodeCardUtils";
 
 // Feature: tizen-parity-phase2, Property 17: Episode landscape card progress indicator behavior
 describe("Property 17: Episode landscape card progress indicator behavior", () => {

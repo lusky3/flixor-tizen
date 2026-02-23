@@ -46,28 +46,12 @@ export function HeroCarousel({ items, onBackdropChange }: HeroCarouselProps) {
 
   const currentItem = items[currentIndex] ?? null;
 
-  const fetchLogo = useCallback(async (item: PlexMediaItem) => {
+  // Reset logo when index changes (render-phase state update avoids cascading effect)
+  const [prevIndex, setPrevIndex] = useState(currentIndex);
+  if (currentIndex !== prevIndex) {
+    setPrevIndex(currentIndex);
     setLogo(null);
-    try {
-      const guid = item.guid || "";
-      const tmdbIdResult = await flixor.tmdb.findByImdbId(guid);
-      const tid =
-        tmdbIdResult.movie_results[0]?.id || tmdbIdResult.tv_results[0]?.id;
-      if (tid) {
-        const imgs = tmdbIdResult.movie_results[0]
-          ? await flixor.tmdb.getMovieImages(tid)
-          : await flixor.tmdb.getTVImages(tid);
-        const logos = imgs.logos || [];
-        const found =
-          logos.find((l: any) => l.iso_639_1 === "en") || logos[0];
-        if (found) {
-          setLogo(flixor.tmdb.getImageUrl(found.file_path as string, "w500"));
-        }
-      }
-    } catch {
-      /* TMDB logo fetch failed — fall back to title text */
-    }
-  }, []);
+  }
 
   const emitBackdrop = useCallback(
     (item: PlexMediaItem) => {
@@ -88,11 +72,42 @@ export function HeroCarousel({ items, onBackdropChange }: HeroCarouselProps) {
 
   // Fetch logo on mount and when index changes
   useEffect(() => {
-    if (currentItem) {
-      fetchLogo(currentItem);
-      emitBackdrop(currentItem);
-    }
-  }, [currentIndex, currentItem, fetchLogo, emitBackdrop]);
+    if (!currentItem) return;
+
+    let cancelled = false;
+
+    // Emit backdrop synchronously (no setState, just calls parent callback)
+    emitBackdrop(currentItem);
+
+    // Fetch logo asynchronously — setState only after await
+    (async () => {
+      try {
+        const guid = currentItem.guid || "";
+        const tmdbIdResult = await flixor.tmdb.findByImdbId(guid);
+        if (cancelled) return;
+        const tid =
+          tmdbIdResult.movie_results[0]?.id || tmdbIdResult.tv_results[0]?.id;
+        if (tid) {
+          const imgs = tmdbIdResult.movie_results[0]
+            ? await flixor.tmdb.getMovieImages(tid)
+            : await flixor.tmdb.getTVImages(tid);
+          if (cancelled) return;
+          const logos = imgs.logos || [];
+          const found =
+            logos.find((l: { iso_639_1?: string | null; file_path?: string }) => l.iso_639_1 === "en") || logos[0];
+          if (found) {
+            setLogo(flixor.tmdb.getImageUrl(found.file_path as string, "w500"));
+            return;
+          }
+        }
+        if (!cancelled) setLogo(null);
+      } catch {
+        if (!cancelled) setLogo(null);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [currentIndex, currentItem, emitBackdrop]);
 
   // Auto-rotation every 15 seconds, paused when hero button is focused
   useEffect(() => {

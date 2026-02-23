@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, it, expect } from "vitest";
-import { formatTime, clampSeek, fillPercent } from "../../components/SeekSlider";
+import { formatTime, clampSeek, fillPercent } from "../../utils/seekSliderUtils";
 
 // Feature: tizen-parity-phase2, Property 20: Seek slider position and time formatting
 // Feature: tizen-parity-phase2, Property 21: Seek increment clamping

@@ -30,8 +30,12 @@ export function TopNav() {
   const location = useLocation();
   const currentPath = location.pathname;
 
-  const [userName, setUserName] = useState("User");
-  const [userThumb, setUserThumb] = useState<string | undefined>();
+  const [userName, setUserName] = useState(
+    () => flixor.currentProfile?.title || "User",
+  );
+  const [userThumb, setUserThumb] = useState(
+    () => flixor.currentProfile?.thumb,
+  );
 
   const { ref: navRef } = useFocusable({
     focusKey: "top-nav",
@@ -40,22 +44,20 @@ export function TopNav() {
   });
 
   useEffect(() => {
-    const profile = flixor.currentProfile;
-    if (profile) {
-      setUserName(profile.title);
-      setUserThumb(profile.thumb);
-      return;
-    }
+    if (flixor.currentProfile) return;
 
-    flixor.getHomeUsers().then((users) => {
-      if (users.length > 0) {
-        const admin = users.find((u) => u.admin) || users[0];
-        setUserName(admin.title);
-        setUserThumb(admin.thumb);
-      }
-    }).catch(() => {
-      // Silently keep defaults
-    });
+    flixor
+      .getHomeUsers()
+      .then((users) => {
+        if (users.length > 0) {
+          const admin = users.find((u) => u.admin) || users[0];
+          setUserName(admin.title);
+          setUserThumb(admin.thumb);
+        }
+      })
+      .catch(() => {
+        // Silently keep defaults
+      });
   }, []);
 
   const handleAvatarPress = useCallback(() => {
@@ -66,13 +68,41 @@ export function TopNav() {
     <nav ref={navRef} className="tv-nav">
       <h1 className="logo">FLIXOR</h1>
       <div className="nav-items">
-        <NavButton label="Home" active={currentPath === "/"} onPress={() => navigate("/")} />
-        <NavButton label="My List" active={currentPath === "/mylist"} onPress={() => navigate("/mylist")} />
-        <NavButton label="New & Popular" active={currentPath === "/new-popular"} onPress={() => navigate("/new-popular")} />
-        <NavButton label="Movies" active={currentPath.includes("/library/movie")} onPress={() => navigate("/library/movie")} />
-        <NavButton label="Shows" active={currentPath.includes("/library/show")} onPress={() => navigate("/library/show")} />
-        <NavButton label="Search" active={currentPath === "/search"} onPress={() => navigate("/search")} />
-        <NavButton label="⚙ Settings" active={currentPath === "/settings"} onPress={() => navigate("/settings")} />
+        <NavButton
+          label="Home"
+          active={currentPath === "/"}
+          onPress={() => navigate("/")}
+        />
+        <NavButton
+          label="My List"
+          active={currentPath === "/mylist"}
+          onPress={() => navigate("/mylist")}
+        />
+        <NavButton
+          label="New & Popular"
+          active={currentPath === "/new-popular"}
+          onPress={() => navigate("/new-popular")}
+        />
+        <NavButton
+          label="Movies"
+          active={currentPath.includes("/library/movie")}
+          onPress={() => navigate("/library/movie")}
+        />
+        <NavButton
+          label="Shows"
+          active={currentPath.includes("/library/show")}
+          onPress={() => navigate("/library/show")}
+        />
+        <NavButton
+          label="Search"
+          active={currentPath === "/search"}
+          onPress={() => navigate("/search")}
+        />
+        <NavButton
+          label="⚙ Settings"
+          active={currentPath === "/settings"}
+          onPress={() => navigate("/settings")}
+        />
       </div>
       <div className="nav-user">
         <UserAvatar

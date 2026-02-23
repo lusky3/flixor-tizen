@@ -35,6 +35,14 @@ const MediaInfoStatus = {
   PARTIALLY_AVAILABLE: 4, AVAILABLE: 5,
 };
 
+interface OverseerrMediaInfo {
+  mediaInfo?: {
+    status: number;
+    requests?: Array<{ id: number; status: number }>;
+  };
+  seasons?: Array<{ seasonNumber: number }>;
+}
+
 /** Helper to build cache keys */
 function key(...parts: (string | number)[]): string {
   return `overseerr:${parts.join(":")}`;
@@ -64,7 +72,7 @@ async function fetchOverseerr(
   });
 }
 
-function determineStatus(mediaInfo: any): OverseerrMediaStatus {
+function determineStatus(mediaInfo: OverseerrMediaInfo): OverseerrMediaStatus {
   const mediaStatus = mediaInfo?.mediaInfo?.status;
   const requests = mediaInfo?.mediaInfo?.requests || [];
 
@@ -75,13 +83,13 @@ function determineStatus(mediaInfo: any): OverseerrMediaStatus {
   if (mediaStatus === MediaInfoStatus.PROCESSING)
     return { status: "processing", canRequest: false };
 
-  const pending = requests.find((r: any) => r.status === MediaRequestStatus.PENDING);
+  const pending = requests.find((r) => r.status === MediaRequestStatus.PENDING);
   if (pending) return { status: "pending", requestId: pending.id, canRequest: false };
 
-  const approved = requests.find((r: any) => r.status === MediaRequestStatus.APPROVED);
+  const approved = requests.find((r) => r.status === MediaRequestStatus.APPROVED);
   if (approved) return { status: "approved", requestId: approved.id, canRequest: false };
 
-  const declined = requests.find((r: any) => r.status === MediaRequestStatus.DECLINED);
+  const declined = requests.find((r) => r.status === MediaRequestStatus.DECLINED);
   if (declined) return { status: "declined", requestId: declined.id, canRequest: true };
 
   return { status: "not_requested", canRequest: true };
@@ -137,15 +145,18 @@ export async function requestMedia(
           settings.overseerrUrl, settings.overseerrApiKey, `/tv/${tmdbId}`,
         );
         if (tvResp.ok) {
-          const tvData = await tvResp.json();
+          const tvData = (await tvResp.json()) as OverseerrMediaInfo;
           seasons = (tvData.seasons || [])
-            .filter((s: any) => s.seasonNumber > 0)
-            .map((s: any) => s.seasonNumber);
+            .filter((s) => s.seasonNumber > 0)
+            .map((s) => s.seasonNumber);
         }
       } catch { /* ignore */ }
     }
 
-    const body: any = { mediaType, mediaId: tmdbId };
+    const body: { mediaType: string; mediaId: number; seasons?: number[] } = {
+      mediaType,
+      mediaId: tmdbId,
+    };
     if (seasons?.length) body.seasons = seasons;
 
     const response = await fetchOverseerr(

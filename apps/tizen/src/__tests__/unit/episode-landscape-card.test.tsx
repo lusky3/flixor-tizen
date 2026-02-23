@@ -1,9 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import {
-  EpisodeLandscapeCard,
-  getProgressDisplay,
-} from "../../components/EpisodeLandscapeCard";
+import { EpisodeLandscapeCard } from "../../components/EpisodeLandscapeCard";
+import { getProgressDisplay } from "../../utils/episodeCardUtils";
 
 // --- Mocks ---
 

@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, it, expect } from "vitest";
-import { deriveMoods, GENRE_MOOD_MAP } from "../../components/MoodTags";
+import { deriveMoods, GENRE_MOOD_MAP } from "../../utils/moodTagsUtils";
 
 // Feature: tizen-parity-phase2, Property 18: Mood tag derivation from genres
 

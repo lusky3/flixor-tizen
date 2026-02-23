@@ -3,19 +3,14 @@ import {
   useFocusable,
   FocusContext,
 } from "@noriginmedia/norigin-spatial-navigation";
-import { getTrending, buildImageUrl } from "../services/tmdb";
+import { getTrending } from "../services/tmdb";
+import type { TMDBMedia } from "@flixor/core";
 
 export interface PopularSearchesProps {
   onSearchTerm: (term: string) => void;
 }
 
-function Pill({
-  label,
-  onSelect,
-}: {
-  label: string;
-  onSelect: () => void;
-}) {
+function Pill({ label, onSelect }: { label: string; onSelect: () => void }) {
   const { ref, focused } = useFocusable({ onEnterPress: onSelect });
 
   return (
@@ -44,7 +39,7 @@ export function PopularSearches({ onSearchTerm }: PopularSearchesProps) {
 
         const titles = res.results
           .slice(0, 12)
-          .map((item) => item.title || item.name || "")
+          .map((item: TMDBMedia) => (item.title || item.name || "") as string)
           .filter(Boolean);
 
         // Deduplicate
@@ -57,7 +52,9 @@ export function PopularSearches({ onSearchTerm }: PopularSearchesProps) {
     }
 
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (loading) {
@@ -81,11 +78,7 @@ export function PopularSearches({ onSearchTerm }: PopularSearchesProps) {
         <h3 className="popular-searches-title">Popular Searches</h3>
         <div className="popular-searches-grid">
           {terms.map((term) => (
-            <Pill
-              key={term}
-              label={term}
-              onSelect={() => onSearchTerm(term)}
-            />
+            <Pill key={term} label={term} onSelect={() => onSearchTerm(term)} />
           ))}
         </div>
       </section>

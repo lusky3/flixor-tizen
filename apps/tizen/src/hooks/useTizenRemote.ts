@@ -36,7 +36,7 @@ const KEY = {
 } as const;
 
 // Keys that spatial nav handles — we must NOT interfere
-const SPATIAL_NAV_KEYS = new Set([KEY.LEFT, KEY.UP, KEY.RIGHT, KEY.DOWN, KEY.ENTER]);
+const SPATIAL_NAV_KEYS: Set<number> = new Set([KEY.LEFT, KEY.UP, KEY.RIGHT, KEY.DOWN, KEY.ENTER]);
 
 // Debounce interval for action keys only (ms)
 const ACTION_DEBOUNCE_MS = 200;
@@ -46,7 +46,7 @@ export function useTizenRemote() {
   const location = useLocation();
 
   useEffect(() => {
-    const tizen = (globalThis as any).tizen;
+    const tizen = (globalThis as unknown as { tizen?: TizenGlobal }).tizen;
     let lastActionKeyTime = 0;
 
     // Register Tizen TV input device keys
@@ -63,7 +63,7 @@ export function useTizenRemote() {
         ];
         keys.forEach(key => {
           try {
-            tizen.tvinputdevice.registerKey(key);
+            tizen.tvinputdevice?.registerKey(key);
           } catch {
             // Key may not be available on all models
           }
@@ -93,7 +93,7 @@ export function useTizenRemote() {
           navigate(-1);
         } else if (tizen) {
           try {
-            tizen.application.getCurrentApplication().exit();
+            tizen.application?.getCurrentApplication().exit();
           } catch { /* ignore */ }
         }
         return;
@@ -222,8 +222,17 @@ export function useTizenRemote() {
   }, [navigate, location.pathname]);
 }
 
+interface TizenGlobal {
+  tvinputdevice?: {
+    registerKey(key: string): void;
+  };
+  application?: {
+    getCurrentApplication(): { exit(): void };
+  };
+}
+
 declare global {
   interface Window {
-    tizen?: any;
+    tizen?: TizenGlobal;
   }
 }

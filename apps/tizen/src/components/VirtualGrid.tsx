@@ -35,7 +35,7 @@ interface GridLayout {
   visibleEndRow: number;
 }
 
-export function computeLayout(
+function computeLayout(
   containerWidth: number,
   viewportHeight: number,
   scrollTop: number,
@@ -61,7 +61,6 @@ export function computeLayout(
   );
   return { columnCount, rowCount, totalHeight, visibleStartRow, visibleEndRow };
 }
-
 
 function FocusableGridItem<T extends VirtualGridItem>({
   item,
@@ -96,7 +95,10 @@ function InfiniteSentinel({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const onVisibleRef = useRef(onVisible);
-  onVisibleRef.current = onVisible;
+
+  useEffect(() => {
+    onVisibleRef.current = onVisible;
+  }, [onVisible]);
 
   useEffect(() => {
     const el = ref.current;
@@ -197,7 +199,16 @@ export function VirtualGrid<T extends VirtualGridItem>({
         gap,
         overscan,
       ),
-    [containerWidth, viewportHeight, scrollTop, items.length, columnWidth, rowHeight, gap, overscan],
+    [
+      containerWidth,
+      viewportHeight,
+      scrollTop,
+      items.length,
+      columnWidth,
+      rowHeight,
+      gap,
+      overscan,
+    ],
   );
 
   const visibleItems = useMemo(() => {
@@ -232,15 +243,24 @@ export function VirtualGrid<T extends VirtualGridItem>({
     isFocusBoundary: true,
   });
 
+  // Sync containerRef with focusRef if needed (containerRef is used by InfiniteSentinel)
+  useEffect(() => {
+    if (focusRef.current) {
+      (containerRef as React.MutableRefObject<HTMLDivElement | null>).current =
+        focusRef.current;
+    }
+  }, [focusRef]);
+
   return (
     <FocusContext.Provider value={focusKey}>
       <div
-        ref={(el) => {
-          (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-          (focusRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-        }}
+        ref={focusRef}
         className="virtual-grid-container"
-        style={{ height: "calc(100vh - 200px)", overflow: "auto", position: "relative" }}
+        style={{
+          height: "calc(100vh - 200px)",
+          overflow: "auto",
+          position: "relative",
+        }}
       >
         <div
           style={{
@@ -259,10 +279,7 @@ export function VirtualGrid<T extends VirtualGridItem>({
           ))}
         </div>
         {hasMore && (
-          <InfiniteSentinel
-            rootRef={containerRef}
-            onVisible={handleLoadMore}
-          />
+          <InfiniteSentinel rootRef={containerRef} onVisible={handleLoadMore} />
         )}
       </div>
     </FocusContext.Provider>

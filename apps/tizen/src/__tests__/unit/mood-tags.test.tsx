@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { deriveMoods, MoodTags, GENRE_MOOD_MAP } from "../../components/MoodTags";
+import { MoodTags } from "../../components/MoodTags";
+import { deriveMoods, GENRE_MOOD_MAP } from "../../utils/moodTagsUtils";
 
 // --- deriveMoods unit tests ---
 

@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useFocusable, FocusContext } from "@noriginmedia/norigin-spatial-navigation";
+import {
+  useFocusable,
+  FocusContext,
+} from "@noriginmedia/norigin-spatial-navigation";
 import { flixor } from "../services/flixor";
 import { loadSettings } from "../services/settings";
 import type { PlexMediaItem } from "@flixor/core";
@@ -26,7 +29,11 @@ export function LibraryPage() {
   const libKeyRef = useRef<string | null>(null);
   const navigate = useNavigate();
 
-  const { ref: pageRef, focusKey: pageFocusKey, focusSelf } = useFocusable({
+  const {
+    ref: pageRef,
+    focusKey: pageFocusKey,
+    focusSelf,
+  } = useFocusable({
     focusKey: "library-page",
     trackChildren: true,
   });
@@ -103,8 +110,7 @@ export function LibraryPage() {
     }
     if (selectedGenre) {
       result = result.filter((item) => {
-        const meta = item as any;
-        return meta.Genre?.some((g: any) => g.tag === selectedGenre);
+        return item.Genre?.some((g) => g.tag === selectedGenre);
       });
     }
     setFilteredItems(result);
@@ -142,52 +148,59 @@ export function LibraryPage() {
           {type === "movie" ? "Movies" : "TV Shows"}
         </h1>
 
-      <div className="library-filters">
-        <input
-          type="text"
-          className="search-input library-search"
-          placeholder={`Search ${type === "movie" ? "movies" : "shows"}...`}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          autoFocus
-        />
-        {genreFilterOptions.length > 0 && (
-          <FilterBar
-            options={genreFilterOptions}
-            activeId={selectedGenre}
-            onSelect={setSelectedGenre}
+        <div className="library-filters">
+          <input
+            type="text"
+            className="search-input library-search"
+            placeholder={`Search ${type === "movie" ? "movies" : "shows"}...`}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            autoFocus
           />
-        )}
-      </div>
+          {genreFilterOptions.length > 0 && (
+            <FilterBar
+              options={genreFilterOptions}
+              activeId={selectedGenre}
+              onSelect={setSelectedGenre}
+            />
+          )}
+        </div>
 
-      {loading ? (
-        <div style={{ padding: "0 80px" }}>
-          <SkeletonRow count={6} variant="poster" />
-          <SkeletonRow count={6} variant="poster" />
-        </div>
-      ) : !flixor.isPlexAuthenticated ? (
-        <div style={{ padding: "0 80px" }}>
-          <SectionBanner
-            title="Connect Your Plex Server"
-            message="Link your Plex account to browse your library."
-            cta="Go to Settings"
-            to="/settings"
-          />
-        </div>
-      ) : filteredItems.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "60px", color: "rgba(255,255,255,0.4)", fontSize: "24px" }}>
-          No results found
-        </div>
-      ) : (
-        <div style={{ padding: "0 80px 100px", flex: 1 }}>
-          <VirtualGrid<LibraryGridItem>
-            items={gridItems}
-            render={renderCard}
-            hasMore={!isFiltering && hasMore}
-            loadMore={!isFiltering ? loadMore : undefined}
-          />
-        </div>
-      )}
+        {loading ? (
+          <div style={{ padding: "0 80px" }}>
+            <SkeletonRow count={6} variant="poster" />
+            <SkeletonRow count={6} variant="poster" />
+          </div>
+        ) : !flixor.isPlexAuthenticated ? (
+          <div style={{ padding: "0 80px" }}>
+            <SectionBanner
+              title="Connect Your Plex Server"
+              message="Link your Plex account to browse your library."
+              cta="Go to Settings"
+              to="/settings"
+            />
+          </div>
+        ) : filteredItems.length === 0 ? (
+          <div
+            style={{
+              textAlign: "center",
+              padding: "60px",
+              color: "rgba(255,255,255,0.4)",
+              fontSize: "24px",
+            }}
+          >
+            No results found
+          </div>
+        ) : (
+          <div style={{ padding: "0 80px 100px", flex: 1 }}>
+            <VirtualGrid<LibraryGridItem>
+              items={gridItems}
+              render={renderCard}
+              hasMore={!isFiltering && hasMore}
+              loadMore={!isFiltering ? loadMore : undefined}
+            />
+          </div>
+        )}
       </div>
     </FocusContext.Provider>
   );

@@ -1,7 +1,17 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { flixor } from "../services/flixor";
-import type { PlexMediaItem } from "@flixor/core";
+import type {
+  PlexMediaItem,
+  TMDBMedia,
+  TMDBMovieDetails,
+  TMDBTVDetails,
+  TMDBCredits,
+  TMDBCrewMember,
+  TMDBCastMember,
+  TMDBVideo,
+  TraktWatchlistItem,
+} from "@flixor/core";
 import { MediaCard } from "../components/MediaCard";
 import { RatingsBar } from "../components/RatingsBar";
 import { SeasonSelector } from "../components/SeasonSelector";
@@ -29,7 +39,10 @@ import {
 } from "../services/tmdb";
 import { MoodTags } from "../components/MoodTags";
 import { TechnicalChips } from "../components/TechnicalChips";
-import { AccessibilityBadges, detectAccessibilityBadges } from "../components/AccessibilityBadges";
+import {
+  AccessibilityBadges,
+  detectAccessibilityBadges,
+} from "../components/AccessibilityBadges";
 import { EpisodeLandscapeCard } from "../components/EpisodeLandscapeCard";
 import { EpisodeSkeletonList } from "../components/EpisodeSkeletonList";
 import { PersonModal } from "../components/PersonModal";
@@ -51,7 +64,9 @@ export function DetailsPage() {
   const [activeTab, setActiveTab] = useState(0);
 
   // Ratings via ratings service
-  const [ratingsResult, setRatingsResult] = useState<RatingsResult | null>(null);
+  const [ratingsResult, setRatingsResult] = useState<RatingsResult | null>(
+    null,
+  );
 
   // Watchlist state
   const [inWatchlist, setInWatchlist] = useState(false);
@@ -61,7 +76,9 @@ export function DetailsPage() {
   const [tagline, setTagline] = useState<string | null>(null);
   const [director, setDirector] = useState<string | null>(null);
   const [writers, setWriters] = useState<string[]>([]);
-  const [onDeckEpisode, setOnDeckEpisode] = useState<PlexMediaItem | null>(null);
+  const [onDeckEpisode, setOnDeckEpisode] = useState<PlexMediaItem | null>(
+    null,
+  );
 
   // Extra TMDB metadata
   const [productionCompanies, setProductionCompanies] = useState<string[]>([]);
@@ -72,17 +89,25 @@ export function DetailsPage() {
   const [originalLanguage, setOriginalLanguage] = useState<string | null>(null);
 
   // YouTube trailer
-  const [youtubeTrailerKey, setYoutubeTrailerKey] = useState<string | null>(null);
+  const [youtubeTrailerKey, setYoutubeTrailerKey] = useState<string | null>(
+    null,
+  );
   const [showTrailerModal, setShowTrailerModal] = useState(false);
 
   // Cast from TMDB credits
-  const [cast, setCast] = useState<Array<{ name: string; character: string; profilePath?: string }>>([]);
+  const [cast, setCast] = useState<
+    Array<{ name: string; character: string; profilePath?: string }>
+  >([]);
 
   // TMDB logo
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   // Accessibility badges
-  const [a11yBadges, setA11yBadges] = useState<{ hasCC: boolean; hasSDH: boolean; hasAD: boolean }>({ hasCC: false, hasSDH: false, hasAD: false });
+  const [a11yBadges, setA11yBadges] = useState<{
+    hasCC: boolean;
+    hasSDH: boolean;
+    hasAD: boolean;
+  }>({ hasCC: false, hasSDH: false, hasAD: false });
 
   // Networks (TV shows)
   const [networks, setNetworks] = useState<string[]>([]);
@@ -92,7 +117,9 @@ export function DetailsPage() {
 
   // PersonModal state
   const [personModalOpen, setPersonModalOpen] = useState(false);
-  const [selectedPerson, setSelectedPerson] = useState<{ name?: string } | null>(null);
+  const [selectedPerson, setSelectedPerson] = useState<{
+    name?: string;
+  } | null>(null);
 
   // Version selector state
   const [selectedMedia, setSelectedMedia] = useState(0);
@@ -148,31 +175,43 @@ export function DetailsPage() {
         setItem(data);
 
         // Extract tech badges using utility (uses selectedMedia index, default 0 on fresh load)
-        const media0 = data.Media?.[selectedMedia] as Record<string, unknown> | undefined;
+        const media0 = data.Media?.[selectedMedia] as
+          | Record<string, unknown>
+          | undefined;
         if (media0) {
-          setTechBadges(extractTechBadges({
-            width: (media0.width as number) || 0,
-            height: (media0.height as number) || 0,
-            videoProfile: (media0.videoProfile as string) || "",
-            audioProfile: (media0.audioProfile as string) || "",
-            audioCodec: (media0.audioCodec as string) || "",
-          }));
+          setTechBadges(
+            extractTechBadges({
+              width: (media0.width as number) || 0,
+              height: (media0.height as number) || 0,
+              videoProfile: (media0.videoProfile as string) || "",
+              audioProfile: (media0.audioProfile as string) || "",
+              audioCodec: (media0.audioCodec as string) || "",
+            }),
+          );
         }
 
         if (data.type === "show") {
-          const seasonData = await flixor.plexServer.getChildren(data.ratingKey);
+          const seasonData = await flixor.plexServer.getChildren(
+            data.ratingKey,
+          );
           setSeasons(seasonData);
-          if (seasonData.length > 0) handleSeasonSelect(seasonData[0].ratingKey);
+          if (seasonData.length > 0)
+            handleSeasonSelect(seasonData[0].ratingKey);
 
           // Fetch on-deck episode
           try {
             const onDeck = await flixor.plexServer.getOnDeck();
             const showOnDeck = onDeck.find((e: PlexMediaItem) => {
-              const meta = e as any;
-              return meta.grandparentRatingKey === data.ratingKey || meta.parentRatingKey === data.ratingKey;
+              const meta = e as PlexMediaItem;
+              return (
+                meta.grandparentRatingKey === data.ratingKey ||
+                meta.parentRatingKey === data.ratingKey
+              );
             });
             if (showOnDeck) setOnDeckEpisode(showOnDeck);
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
         }
 
         const relatedData = await flixor.plexServer.getRelated(ratingKey);
@@ -195,91 +234,158 @@ export function DetailsPage() {
 
         // Fetch TMDB details, credits, recommendations, videos via service wrappers
         if (tmdbId) {
-          const tmdbMediaType: TmdbMediaType = data.type === "show" ? "tv" : "movie";
+          const tmdbMediaType: TmdbMediaType =
+            data.type === "show" ? "tv" : "movie";
           const tmdbIdNum = Number(tmdbId);
 
           // TMDB details for tagline + extra metadata
           try {
             const tmdbDetails = await getTmdbDetails(tmdbIdNum, tmdbMediaType);
             if (tmdbDetails) {
-              const d = tmdbDetails as unknown as Record<string, unknown>;
-              if (d.tagline) setTagline(d.tagline as string);
+              if (tmdbDetails.tagline) setTagline(tmdbDetails.tagline);
 
-              if (d.production_companies) {
-                const companies = (d.production_companies as Array<Record<string, unknown>>)
-                  .map((c) => c.name as string).filter(Boolean).slice(0, 6);
-                if (companies.length > 0) setProductionCompanies(companies);
+              if (tmdbDetails.production_companies) {
+                const companies = tmdbDetails.production_companies
+                  .map((c) => c.name)
+                  .filter(Boolean)
+                  .slice(0, 6);
+                if (companies.length > 0)
+                  setProductionCompanies(companies as string[]);
               }
-              if (d.networks) {
-                const nets = (d.networks as Array<Record<string, unknown>>)
-                  .map((n) => n.name as string).filter(Boolean).slice(0, 6);
-                if (nets.length > 0) setNetworks(nets);
+              if (
+                tmdbMediaType === "tv" &&
+                (tmdbDetails as TMDBTVDetails).networks
+              ) {
+                const nets = (tmdbDetails as TMDBTVDetails)
+                  .networks!.map((n) => n.name)
+                  .filter(Boolean)
+                  .slice(0, 6);
+                if (nets.length > 0) setNetworks(nets as string[]);
               }
-              if (typeof d.budget === "number" && d.budget > 0) setBudget(d.budget as number);
-              if (typeof d.revenue === "number" && d.revenue > 0) setRevenue(d.revenue as number);
-              if (d.status) setStatus(d.status as string);
-              if (d.release_date) setReleaseDate(d.release_date as string);
-              else if (d.first_air_date) setReleaseDate(d.first_air_date as string);
-              if (d.original_language) setOriginalLanguage((d.original_language as string).toUpperCase());
+              if (
+                tmdbMediaType === "movie" &&
+                (tmdbDetails as TMDBMovieDetails).budget &&
+                ((tmdbDetails as TMDBMovieDetails).budget || 0) > 0
+              ) {
+                setBudget((tmdbDetails as TMDBMovieDetails).budget!);
+              }
+              if (
+                tmdbMediaType === "movie" &&
+                (tmdbDetails as TMDBMovieDetails).revenue &&
+                ((tmdbDetails as TMDBMovieDetails).revenue || 0) > 0
+              ) {
+                setRevenue((tmdbDetails as TMDBMovieDetails).revenue!);
+              }
+              if (tmdbDetails.status) setStatus(tmdbDetails.status);
+              if (tmdbDetails.release_date)
+                setReleaseDate(tmdbDetails.release_date);
+              else if ((tmdbDetails as TMDBTVDetails).first_air_date)
+                setReleaseDate((tmdbDetails as TMDBTVDetails).first_air_date!);
+              if (tmdbDetails.original_language)
+                setOriginalLanguage(
+                  tmdbDetails.original_language.toUpperCase(),
+                );
             }
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
 
           // TMDB credits for director, writers, and cast
           try {
-            const credits = await getTmdbCredits(tmdbIdNum, tmdbMediaType);
+            const credits = (await getTmdbCredits(
+              tmdbIdNum,
+              tmdbMediaType,
+            )) as TMDBCredits;
             if (credits) {
-              const crew = (credits as any).crew || [];
-              const dirs = crew.filter((c: any) => c.job === "Director").map((c: any) => c.name);
+              const crew = credits.crew || [];
+              const dirs = crew
+                .filter((c: TMDBCrewMember) => c.job === "Director")
+                .map((c: TMDBCrewMember) => c.name);
               if (dirs.length > 0) setDirector(dirs.join(", "));
               const writerList = crew
-                .filter((c: any) => c.department === "Writing" || c.job === "Screenplay" || c.job === "Writer")
-                .map((c: any) => c.name);
-              if (writerList.length > 0) setWriters([...new Set(writerList)].slice(0, 5) as string[]);
+                .filter(
+                  (c: TMDBCrewMember) =>
+                    c.department === "Writing" ||
+                    c.job === "Screenplay" ||
+                    c.job === "Writer",
+                )
+                .map((c: TMDBCrewMember) => c.name);
+              if (writerList.length > 0)
+                setWriters([...new Set(writerList)].slice(0, 5) as string[]);
 
               // Extract cast from TMDB credits
-              const castList = ((credits as any).cast || []).slice(0, 15).map((c: any) => ({
-                name: c.name || "",
-                character: c.character || "",
-                profilePath: c.profile_path || undefined,
-              }));
+              const castList = (credits.cast || [])
+                .slice(0, 15)
+                .map((c: TMDBCastMember) => ({
+                  name: c.name || "",
+                  character: c.character || "",
+                  profilePath: c.profile_path || undefined,
+                }));
               setCast(castList);
             }
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
 
           // TMDB videos for YouTube trailer
           try {
             const videos = await getTmdbVideos(tmdbIdNum, tmdbMediaType);
             const vids = videos.results || [];
-            const yt = vids.find((v: any) => v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser"));
-            if (yt && (yt as any).key) setYoutubeTrailerKey((yt as any).key as string);
-          } catch { /* ignore */ }
+            const yt = vids.find(
+              (v: TMDBVideo) =>
+                v.site === "YouTube" &&
+                (v.type === "Trailer" || v.type === "Teaser"),
+            );
+            if (yt && yt.key) setYoutubeTrailerKey(yt.key);
+          } catch {
+            /* ignore */
+          }
 
           // TMDB recommendations
           try {
             const recs = await getTmdbRecommendations(tmdbIdNum, tmdbMediaType);
             const results = recs.results || [];
-            const simItems: PlexMediaItem[] = results.slice(0, 10).map((r: any) => ({
-              ratingKey: `tmdb-${tmdbMediaType}-${r.id}`,
-              title: r.title || r.name,
-              thumb: buildImageUrl(r.poster_path, "poster"),
-              art: buildImageUrl(r.backdrop_path, "backdrop"),
-              year: (r.release_date || r.first_air_date || "").split("-")[0],
-              summary: r.overview || "",
-              duration: 0,
-              guid: `tmdb://${r.id}`,
-            })) as any[];
+            const simItems: PlexMediaItem[] = results.slice(0, 10).map(
+              (r: TMDBMedia) =>
+                ({
+                  ratingKey: `tmdb-${tmdbMediaType}-${r.id}`,
+                  key: `tmdb-${tmdbMediaType}-${r.id}`,
+                  type: tmdbMediaType === "tv" ? "show" : "movie",
+                  title: r.title || r.name,
+                  thumb: buildImageUrl(r.poster_path, "poster"),
+                  art: buildImageUrl(r.backdrop_path, "backdrop"),
+                  year: Number(
+                    (r.release_date || r.first_air_date || "").split("-")[0],
+                  ),
+                  summary: r.overview || "",
+                  duration: 0,
+                  guid: `tmdb://${r.id}`,
+                }) as PlexMediaItem,
+            );
             setTmdbSimilar(simItems);
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
 
           // TMDB logo images
           try {
             const images = await getTmdbImages(tmdbIdNum, tmdbMediaType);
-            const logos = (images.logos || []) as Array<{ iso_639_1?: string | null; file_path?: string }>;
-            const enLogo = logos.find((l) => l.iso_639_1 === "en" || l.iso_639_1 === null || l.iso_639_1 === undefined);
+            const logos = (images.logos || []) as Array<{
+              iso_639_1?: string | null;
+              file_path?: string;
+            }>;
+            const enLogo = logos.find(
+              (l) =>
+                l.iso_639_1 === "en" ||
+                l.iso_639_1 === null ||
+                l.iso_639_1 === undefined,
+            );
             if (enLogo?.file_path) {
               setLogoUrl(buildImageUrl(enLogo.file_path, "logo"));
             }
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
 
           // Fetch watch providers
           try {
@@ -287,12 +393,18 @@ export function DetailsPage() {
             if (providers?.flatrate) {
               setWatchProviders(providers.flatrate);
             }
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
         }
 
         // Detect accessibility badges from media streams
-        const allStreams: Array<{ streamType?: number; displayTitle?: string; title?: string }> = [];
-        const mediaArr = (data as any).Media || [];
+        const allStreams: Array<{
+          streamType?: number;
+          displayTitle?: string;
+          title?: string;
+        }> = [];
+        const mediaArr = data.Media || [];
         for (const media of mediaArr) {
           const parts = media.Part || [];
           for (const part of parts) {
@@ -307,13 +419,16 @@ export function DetailsPage() {
         // Check Trakt watchlist status
         if (isTraktAuthenticated() && tmdbId) {
           const wlType = data.type === "show" ? "shows" : "movies";
-          flixor.trakt.getWatchlist(wlType).then((wl) => {
-            const found = wl.some((w: any) => {
-              const media = w.movie || w.show;
-              return media?.ids?.tmdb === Number(tmdbId);
-            });
-            setInWatchlist(found);
-          }).catch(() => {});
+          flixor.trakt
+            .getWatchlist(wlType)
+            .then((wl: TraktWatchlistItem[]) => {
+              const found = wl.some((w) => {
+                const media = w.movie || w.show;
+                return media?.ids?.tmdb === Number(tmdbId);
+              });
+              setInWatchlist(found);
+            })
+            .catch(() => {});
         }
       } catch (err) {
         console.error("Failed to load details", err);
@@ -322,19 +437,21 @@ export function DetailsPage() {
       }
     };
     fetchData();
-  }, [ratingKey, handleSeasonSelect]);
+  }, [ratingKey, handleSeasonSelect, selectedMedia]);
 
-  // Re-extract tech badges when selectedMedia changes
   useEffect(() => {
     if (!item?.Media?.[selectedMedia]) return;
-    const media = item.Media[selectedMedia] as unknown as Record<string, unknown>;
-    setTechBadges(extractTechBadges({
-      width: (media.width as number) || 0,
-      height: (media.height as number) || 0,
-      videoProfile: (media.videoProfile as string) || "",
-      audioProfile: (media.audioProfile as string) || "",
-      audioCodec: (media.audioCodec as string) || "",
-    }));
+    const media = item.Media[selectedMedia];
+    const part = media.Part?.[0];
+    setTechBadges(
+      extractTechBadges({
+        width: media.width || 0,
+        height: media.height || 0,
+        videoProfile: part?.videoProfile || "",
+        audioProfile: "",
+        audioCodec: media.audioCodec || "",
+      }),
+    );
   }, [item, selectedMedia]);
 
   const handleCastClick = useCallback((name: string) => {
@@ -345,15 +462,22 @@ export function DetailsPage() {
   }, []);
 
   // Derived values
-  const backdrop = item ? flixor.plexServer.getImageUrl(item.art || item.thumb) : "";
-  const meta = item as any;
+  const backdrop = item
+    ? flixor.plexServer.getImageUrl(item.art || item.thumb)
+    : "";
+  const meta = item as PlexMediaItem;
   const plexTrailer = meta?.Extras?.Metadata?.find(
-    (m: any) => m.extraType === "trailer" || m.title?.toLowerCase().includes("trailer"),
+    (m) =>
+      (m as unknown as Record<string, unknown>).extraType === "trailer" ||
+      m.title?.toLowerCase().includes("trailer"),
   );
 
-  const viewOffset = (item as unknown as Record<string, unknown>)?.viewOffset as number | undefined;
+  const viewOffset = (item as unknown as Record<string, unknown>)
+    ?.viewOffset as number | undefined;
   const itemDuration = item?.duration || 0;
-  const resumeLabel = viewOffset ? formatResumeLabel(viewOffset, itemDuration) : null;
+  const resumeLabel = viewOffset
+    ? formatResumeLabel(viewOffset, itemDuration)
+    : null;
 
   // Extract TMDB ID and media type for RequestButton
   const tmdbGuid = item?.Guid?.find((g) => g.id.startsWith("tmdb://"));
@@ -363,14 +487,17 @@ export function DetailsPage() {
   const mediaType: "movie" | "tv" = item?.type === "show" ? "tv" : "movie";
 
   // Watchlist item for WatchlistButton
-  const watchlistItem = useMemo(() => ({
-    type: (item?.type === "show" ? "show" : "movie") as "movie" | "show",
-    ids: { tmdb: tmdbId ?? undefined, imdb: imdbId },
-  }), [item?.type, tmdbId, imdbId]);
+  const watchlistItem = useMemo(
+    () => ({
+      type: (item?.type === "show" ? "show" : "movie") as "movie" | "show",
+      ids: { tmdb: tmdbId ?? undefined, imdb: imdbId },
+    }),
+    [item?.type, tmdbId, imdbId],
+  );
 
   // Season selector data
-  const seasonItems = useMemo(() =>
-    seasons.map((s) => ({ key: s.ratingKey, title: s.title })),
+  const seasonItems = useMemo(
+    () => seasons.map((s) => ({ key: s.ratingKey, title: s.title })),
     [seasons],
   );
 
@@ -384,7 +511,12 @@ export function DetailsPage() {
       content: (
         <>
           {/* Extra TMDB Metadata */}
-          {(productionCompanies.length > 0 || budget || revenue || status || releaseDate || originalLanguage) && (
+          {(productionCompanies.length > 0 ||
+            budget ||
+            revenue ||
+            status ||
+            releaseDate ||
+            originalLanguage) && (
             <div className="details-section">
               <h2 className="section-title">Details</h2>
               <div className="details-meta-grid">
@@ -410,7 +542,10 @@ export function DetailsPage() {
                   <div className="meta-field">
                     <span className="meta-field-label">Budget</span>
                     <span className="meta-field-value">
-                      ${budget >= 1_000_000 ? `$${Math.round(budget / 1_000_000)}M` : `$${Math.round(budget / 1_000)}K`}
+                      $
+                      {budget >= 1_000_000
+                        ? `$${Math.round(budget / 1_000_000)}M`
+                        : `$${Math.round(budget / 1_000)}K`}
                     </span>
                   </div>
                 )}
@@ -418,20 +553,27 @@ export function DetailsPage() {
                   <div className="meta-field">
                     <span className="meta-field-label">Revenue</span>
                     <span className="meta-field-value">
-                      ${revenue >= 1_000_000 ? `$${(revenue / 1_000_000).toFixed(1)}M` : `$${Math.round(revenue / 1_000)}K`}
+                      $
+                      {revenue >= 1_000_000
+                        ? `$${(revenue / 1_000_000).toFixed(1)}M`
+                        : `$${Math.round(revenue / 1_000)}K`}
                     </span>
                   </div>
                 )}
                 {productionCompanies.length > 0 && (
                   <div className="meta-field">
                     <span className="meta-field-label">Production</span>
-                    <span className="meta-field-value">{productionCompanies.join(", ")}</span>
+                    <span className="meta-field-value">
+                      {productionCompanies.join(", ")}
+                    </span>
                   </div>
                 )}
                 {networks.length > 0 && (
                   <div className="meta-field">
                     <span className="meta-field-label">Networks</span>
-                    <span className="meta-field-value">{networks.join(", ")}</span>
+                    <span className="meta-field-value">
+                      {networks.join(", ")}
+                    </span>
                   </div>
                 )}
               </div>
@@ -458,20 +600,37 @@ export function DetailsPage() {
             {episodesLoading ? (
               <EpisodeSkeletonList count={6} />
             ) : isHorizontal ? (
-              <div className="episodes-horizontal" style={{ display: "flex", gap: 16, overflowX: "auto", padding: "16px 0" }}>
+              <div
+                className="episodes-horizontal"
+                style={{
+                  display: "flex",
+                  gap: 16,
+                  overflowX: "auto",
+                  padding: "16px 0",
+                }}
+              >
                 {episodes.map((ep) => {
-                  const epMeta = ep as any;
-                  const viewOff = epMeta.viewOffset || 0;
+                  const epMeta = ep as unknown as Record<string, unknown>;
+                  const viewOff = (epMeta.viewOffset as number) || 0;
                   const epDur = ep.duration || 1;
-                  const pct = epDur > 0 ? Math.round((viewOff / epDur) * 100) : 0;
+                  const pct =
+                    epDur > 0 ? Math.round((viewOff / epDur) * 100) : 0;
                   return (
                     <EpisodeLandscapeCard
                       key={ep.ratingKey}
                       episodeNumber={ep.index || 0}
                       title={ep.title}
                       overview={ep.summary}
-                      thumbnailUrl={ep.thumb ? flixor.plexServer.getImageUrl(ep.thumb) : undefined}
-                      duration={ep.duration ? Math.round(ep.duration / 60000) : undefined}
+                      thumbnailUrl={
+                        ep.thumb
+                          ? flixor.plexServer.getImageUrl(ep.thumb)
+                          : undefined
+                      }
+                      duration={
+                        ep.duration
+                          ? Math.round(ep.duration / 60000)
+                          : undefined
+                      }
                       progress={pct}
                       onPress={() => navigate(`/player/${ep.ratingKey}`)}
                     />
@@ -485,8 +644,12 @@ export function DetailsPage() {
                     key={ep.ratingKey}
                     title={ep.title}
                     episodeNumber={ep.index || 0}
-                    seasonNumber={(ep as any).parentIndex || 0}
-                    thumbUrl={ep.thumb ? flixor.plexServer.getImageUrl(ep.thumb) : undefined}
+                    seasonNumber={ep.parentIndex || 0}
+                    thumbUrl={
+                      ep.thumb
+                        ? flixor.plexServer.getImageUrl(ep.thumb)
+                        : undefined
+                    }
                     duration={ep.duration}
                     summary={ep.summary}
                     onClick={() => navigate(`/player/${ep.ratingKey}`)}
@@ -507,10 +670,18 @@ export function DetailsPage() {
           <div className="details-section">
             <div className="cast-list">
               {cast.map((c, i) => (
-                <button key={i} className="cast-item" onClick={() => handleCastClick(c.name)}>
+                <button
+                  key={i}
+                  className="cast-item"
+                  onClick={() => handleCastClick(c.name)}
+                >
                   <div className="cast-thumb-container">
                     {c.profilePath ? (
-                      <img src={buildImageUrl(c.profilePath, "profile")} className="cast-thumb" alt={c.name} />
+                      <img
+                        src={buildImageUrl(c.profilePath, "profile")}
+                        className="cast-thumb"
+                        alt={c.name}
+                      />
                     ) : (
                       <div className="cast-thumb-placeholder">👤</div>
                     )}
@@ -556,7 +727,8 @@ export function DetailsPage() {
                       item={r}
                       variant="poster"
                       onClick={() => {
-                        if (!r.ratingKey.startsWith("tmdb-")) navigate(`/details/${r.ratingKey}`);
+                        if (!r.ratingKey.startsWith("tmdb-"))
+                          navigate(`/details/${r.ratingKey}`);
                       }}
                     />
                   ))}
@@ -570,27 +742,57 @@ export function DetailsPage() {
 
     return result;
   }, [
-    item, seasons, seasonItems, selectedSeason, episodes, episodesLoading, cast, related, tmdbSimilar,
-    productionCompanies, networks, budget, revenue, status, releaseDate, originalLanguage,
-    handleSeasonSelect, handleCastClick, navigate,
+    item,
+    seasons,
+    seasonItems,
+    selectedSeason,
+    episodes,
+    episodesLoading,
+    cast,
+    related,
+    tmdbSimilar,
+    productionCompanies,
+    networks,
+    budget,
+    revenue,
+    status,
+    releaseDate,
+    originalLanguage,
+    handleSeasonSelect,
+    handleCastClick,
+    navigate,
   ]);
 
   if (loading || !item) return <div className="loading">Loading...</div>;
 
-  const genres = meta?.Genre ? (meta.Genre as any[]).map((g: any) => g.tag).join(" • ") : null;
-  const genreList: string[] = meta?.Genre ? (meta.Genre as any[]).map((g: any) => g.tag as string) : [];
+  const genres = meta?.Genre
+    ? (meta.Genre as Array<{ tag: string }>).map((g) => g.tag).join(" • ")
+    : null;
+  const genreList: string[] = meta?.Genre
+    ? (meta.Genre as Array<{ tag: string }>).map((g) => g.tag as string)
+    : [];
 
   // Build TechnicalChips info from media metadata
-  const selectedMediaRaw = (item as any)?.Media?.[selectedMedia];
-  const media0Info = selectedMediaRaw ? {
-    resolution: selectedMediaRaw.height ? `${selectedMediaRaw.height}p` : undefined,
-    bitrate: selectedMediaRaw.bitrate || undefined,
-    videoCodec: selectedMediaRaw.videoCodec || undefined,
-    audioCodec: selectedMediaRaw.audioCodec || undefined,
-    audioChannels: selectedMediaRaw.audioChannels ? String(selectedMediaRaw.audioChannels) : undefined,
-    hdr: selectedMediaRaw.videoProfile?.toLowerCase().includes("hdr") || selectedMediaRaw.videoProfile?.toLowerCase().includes("dolby")
-      ? selectedMediaRaw.videoProfile : undefined,
-  } : null;
+  const selectedMediaRaw = item?.Media?.[selectedMedia];
+  const part0 = selectedMediaRaw?.Part?.[0];
+  const media0Info = selectedMediaRaw
+    ? {
+        resolution: selectedMediaRaw.height
+          ? `${selectedMediaRaw.height}p`
+          : undefined,
+        bitrate: selectedMediaRaw.bitrate || undefined,
+        videoCodec: selectedMediaRaw.videoCodec || undefined,
+        audioCodec: selectedMediaRaw.audioCodec || undefined,
+        audioChannels: selectedMediaRaw.audioChannels
+          ? String(selectedMediaRaw.audioChannels)
+          : undefined,
+        hdr:
+          part0?.videoProfile?.toLowerCase().includes("hdr") ||
+          part0?.videoProfile?.toLowerCase().includes("dolby")
+            ? part0.videoProfile
+            : undefined,
+      }
+    : null;
 
   return (
     <div className="tv-container details-page">
@@ -624,18 +826,32 @@ export function DetailsPage() {
           {media0Info && <TechnicalChips {...media0Info} />}
 
           {/* Accessibility badges */}
-          <AccessibilityBadges hasCC={a11yBadges.hasCC} hasSDH={a11yBadges.hasSDH} hasAD={a11yBadges.hasAD} />
+          <AccessibilityBadges
+            hasCC={a11yBadges.hasCC}
+            hasSDH={a11yBadges.hasSDH}
+            hasAD={a11yBadges.hasAD}
+          />
 
           {/* Ratings */}
           {ratingsResult && <RatingsBar ratings={ratingsResult.ratings} />}
 
           {/* Streaming availability */}
-          {watchProviders.length > 0 && <ServiceIcons providers={watchProviders} />}
+          {watchProviders.length > 0 && (
+            <ServiceIcons providers={watchProviders} />
+          )}
 
           {/* Action buttons */}
           <div className="hero-actions">
             {item.type === "movie" ? (
-              <button className="btn-primary" autoFocus onClick={() => navigate(`/player/${item.ratingKey}`, { state: { mediaIndex: selectedMedia } })}>
+              <button
+                className="btn-primary"
+                autoFocus
+                onClick={() =>
+                  navigate(`/player/${item.ratingKey}`, {
+                    state: { mediaIndex: selectedMedia },
+                  })
+                }
+              >
                 {resumeLabel ? `▶ Resume · ${resumeLabel}` : "▶ Play"}
               </button>
             ) : onDeckEpisode ? (
@@ -644,25 +860,35 @@ export function DetailsPage() {
                 autoFocus
                 onClick={() => navigate(`/player/${onDeckEpisode.ratingKey}`)}
               >
-                ▶ Continue S{onDeckEpisode.parentIndex || "?"}:E{onDeckEpisode.index || "?"}
+                ▶ Continue S{onDeckEpisode.parentIndex || "?"}:E
+                {onDeckEpisode.index || "?"}
               </button>
             ) : (
               <button
                 className="btn-primary"
                 autoFocus
-                onClick={() => { if (episodes.length > 0) navigate(`/player/${episodes[0].ratingKey}`); }}
+                onClick={() => {
+                  if (episodes.length > 0)
+                    navigate(`/player/${episodes[0].ratingKey}`);
+                }}
               >
                 ▶ Play S1:E1
               </button>
             )}
 
             {plexTrailer && (
-              <button className="btn-secondary" onClick={() => navigate(`/player/${plexTrailer.ratingKey}`)}>
+              <button
+                className="btn-secondary"
+                onClick={() => navigate(`/player/${plexTrailer.ratingKey}`)}
+              >
                 Trailer
               </button>
             )}
             {!plexTrailer && youtubeTrailerKey && (
-              <button className="btn-secondary" onClick={() => setShowTrailerModal(true)}>
+              <button
+                className="btn-secondary"
+                onClick={() => setShowTrailerModal(true)}
+              >
                 ▶ Trailer
               </button>
             )}
@@ -673,26 +899,38 @@ export function DetailsPage() {
               onToggle={(nowOn) => setInWatchlist(nowOn)}
             />
 
-            {tmdbId && (
-              <RequestButton tmdbId={tmdbId} mediaType={mediaType} />
-            )}
+            {tmdbId && <RequestButton tmdbId={tmdbId} mediaType={mediaType} />}
 
             {item?.Media && item.Media.length > 1 && (
-              <button className="btn-secondary" onClick={() => setShowVersionSelector(true)}>
+              <button
+                className="btn-secondary"
+                onClick={() => setShowVersionSelector(true)}
+              >
                 Version {selectedMedia + 1}
               </button>
             )}
           </div>
         </DetailsHero>
 
-        <DetailsTabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+        <DetailsTabs
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
       </div>
 
       {/* YouTube Trailer Modal */}
       {showTrailerModal && youtubeTrailerKey && (
-        <div className="trailer-modal-overlay" onClick={() => setShowTrailerModal(false)}>
+        <div
+          className="trailer-modal-overlay"
+          onClick={() => setShowTrailerModal(false)}
+        >
           <div className="trailer-modal" onClick={(e) => e.stopPropagation()}>
-            <button className="trailer-close-btn" onClick={() => setShowTrailerModal(false)} autoFocus>
+            <button
+              className="trailer-close-btn"
+              onClick={() => setShowTrailerModal(false)}
+              autoFocus
+            >
               ✕
             </button>
             <iframe

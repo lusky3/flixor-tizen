@@ -207,6 +207,13 @@ export async function getUpcoming(): Promise<TMDBResultsResponse<TMDBMedia>> {
   return cached(k, () => flixor.tmdb.getUpcomingMovies(), TTL.TRENDING, empty);
 }
 
+export async function getOnTheAir(): Promise<TMDBResultsResponse<TMDBMedia>> {
+  const empty: TMDBResultsResponse<TMDBMedia> = { results: [] };
+  const k = key('on_the_air');
+
+  return cached(k, () => flixor.tmdb.getTVOnTheAir(), TTL.TRENDING, empty);
+}
+
 // ============================================
 // Person
 // ============================================

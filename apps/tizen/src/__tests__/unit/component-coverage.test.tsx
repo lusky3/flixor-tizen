@@ -250,7 +250,8 @@ describe("HeroCarousel", () => {
 
 // ── SeekSlider Tests ────────────────────────────────────────────────
 
-import { SeekSlider, formatTime, clampSeek, fillPercent } from "../../components/SeekSlider";
+import { SeekSlider } from "../../components/SeekSlider";
+import { formatTime, clampSeek, fillPercent } from "../../utils/seekSliderUtils";
 
 describe("SeekSlider – component rendering", () => {
   it("renders timestamps", () => {

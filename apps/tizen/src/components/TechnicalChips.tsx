@@ -17,7 +17,7 @@ export interface TechnicalChipsProps {
  * Pure helper: build an array of formatted chip strings from present fields.
  * Skips undefined/empty fields. Returns the array (may be empty).
  */
-export function buildChips(props: TechnicalChipsProps): string[] {
+function buildChips(props: TechnicalChipsProps): string[] {
   const chips: string[] = [];
 
   if (props.resolution) {
