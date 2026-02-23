@@ -22,17 +22,28 @@ interface PinDialogProps {
 function PinDialog({ user, error, submitting, onSubmit, onCancel }: PinDialogProps) {
   const [pin, setPin] = useState("");
 
-  const { ref: dialogRef, focusKey: dialogFocusKey } = useFocusable({
+  const { ref: dialogRef, focusKey: dialogFocusKey, focusSelf } = useFocusable({
+    focusKey: "pin-dialog",
     trackChildren: true,
     isFocusBoundary: true,
   });
+
+  // Focus the dialog container on mount so spatial nav owns focus
+  useEffect(() => {
+    const timer = setTimeout(() => focusSelf(), 50);
+    return () => clearTimeout(timer);
+  }, [focusSelf]);
 
   const handleSubmit = useCallback(() => {
     if (pin.length === 4 && !submitting) onSubmit(pin);
   }, [pin, submitting, onSubmit]);
 
-  const { ref: inputRef } = useFocusable({
-    onEnterPress: handleSubmit,
+  const { ref: inputRef, focused: inputFocused } = useFocusable({
+    onEnterPress: () => {
+      // When Enter is pressed on the input, move browser focus to it for typing
+      const el = inputRef.current as HTMLInputElement | null;
+      el?.focus();
+    },
   });
 
   const { ref: submitRef, focused: submitFocused } = useFocusable({
@@ -51,7 +62,7 @@ function PinDialog({ user, error, submitting, onSubmit, onCancel }: PinDialogPro
 
           <input
             ref={inputRef}
-            className="pin-input"
+            className={`pin-input${inputFocused ? " focused" : ""}`}
             type="password"
             inputMode="numeric"
             maxLength={4}
@@ -61,7 +72,6 @@ function PinDialog({ user, error, submitting, onSubmit, onCancel }: PinDialogPro
               const val = e.target.value.replace(/\D/g, "").slice(0, 4);
               setPin(val);
             }}
-            autoFocus
           />
 
           {error && <p className="pin-error">{error}</p>}

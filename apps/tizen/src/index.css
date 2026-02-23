@@ -2208,7 +2208,8 @@ input:focus,
   font-family: inherit;
 }
 
-.pin-input:focus {
+.pin-input:focus,
+.pin-input.focused {
   border-color: #ff4b2b;
   background: rgba(255, 255, 255, 0.1);
 }

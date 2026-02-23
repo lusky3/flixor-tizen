@@ -1,9 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import {
-  useFocusable,
-  FocusContext,
-} from "@noriginmedia/norigin-spatial-navigation";
+import { useFocusable } from "@noriginmedia/norigin-spatial-navigation";
 import { UserAvatar } from "./UserAvatar";
 import { flixor } from "../services/flixor";
 
@@ -36,7 +33,7 @@ export function TopNav() {
   const [userName, setUserName] = useState("User");
   const [userThumb, setUserThumb] = useState<string | undefined>();
 
-  const { ref: navRef, focusKey } = useFocusable({
+  const { ref: navRef } = useFocusable({
     focusKey: "top-nav",
     trackChildren: true,
     isFocusBoundary: false,
@@ -66,26 +63,24 @@ export function TopNav() {
   }, [navigate]);
 
   return (
-    <FocusContext.Provider value={focusKey}>
-      <nav ref={navRef} className="tv-nav">
-        <h1 className="logo">FLIXOR</h1>
-        <div className="nav-items">
-          <NavButton label="Home" active={currentPath === "/"} onPress={() => navigate("/")} />
-          <NavButton label="My List" active={currentPath === "/mylist"} onPress={() => navigate("/mylist")} />
-          <NavButton label="New & Popular" active={currentPath === "/new-popular"} onPress={() => navigate("/new-popular")} />
-          <NavButton label="Movies" active={currentPath.includes("/library/movie")} onPress={() => navigate("/library/movie")} />
-          <NavButton label="Shows" active={currentPath.includes("/library/show")} onPress={() => navigate("/library/show")} />
-          <NavButton label="Search" active={currentPath === "/search"} onPress={() => navigate("/search")} />
-          <NavButton label="⚙ Settings" active={currentPath === "/settings"} onPress={() => navigate("/settings")} />
-        </div>
-        <div className="nav-user">
-          <UserAvatar
-            thumb={userThumb}
-            title={userName}
-            onPress={handleAvatarPress}
-          />
-        </div>
-      </nav>
-    </FocusContext.Provider>
+    <nav ref={navRef} className="tv-nav">
+      <h1 className="logo">FLIXOR</h1>
+      <div className="nav-items">
+        <NavButton label="Home" active={currentPath === "/"} onPress={() => navigate("/")} />
+        <NavButton label="My List" active={currentPath === "/mylist"} onPress={() => navigate("/mylist")} />
+        <NavButton label="New & Popular" active={currentPath === "/new-popular"} onPress={() => navigate("/new-popular")} />
+        <NavButton label="Movies" active={currentPath.includes("/library/movie")} onPress={() => navigate("/library/movie")} />
+        <NavButton label="Shows" active={currentPath.includes("/library/show")} onPress={() => navigate("/library/show")} />
+        <NavButton label="Search" active={currentPath === "/search"} onPress={() => navigate("/search")} />
+        <NavButton label="⚙ Settings" active={currentPath === "/settings"} onPress={() => navigate("/settings")} />
+      </div>
+      <div className="nav-user">
+        <UserAvatar
+          thumb={userThumb}
+          title={userName}
+          onPress={handleAvatarPress}
+        />
+      </div>
+    </nav>
   );
 }
