@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { VirtualGrid, computeLayout } from "../../components/VirtualGrid";
+import { VirtualGrid } from "../../components/VirtualGrid";
+import { computeLayout } from "../../utils/virtualGridUtils";
 
 vi.mock("@noriginmedia/norigin-spatial-navigation", () => ({
   useFocusable: () => ({
