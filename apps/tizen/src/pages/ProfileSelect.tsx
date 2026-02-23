@@ -148,7 +148,8 @@ export function ProfileSelect() {
   const [pinError, setPinError] = useState<string | null>(null);
   const [pinSubmitting, setPinSubmitting] = useState(false);
 
-  const { ref: containerRef, focusKey: containerFocusKey } = useFocusable({
+  const { ref: containerRef, focusKey: containerFocusKey, focusSelf } = useFocusable({
+    focusKey: "profile-select",
     trackChildren: true,
     isFocusBoundary: true,
   });
@@ -217,6 +218,15 @@ export function ProfileSelect() {
   useEffect(() => {
     fetchProfiles();
   }, [fetchProfiles]);
+
+  // Restore focus into the profile grid once profiles are loaded
+  useEffect(() => {
+    if (!loading && users.length > 0) {
+      // Small delay to let the DOM render profile cards before focusing
+      const timer = setTimeout(() => focusSelf(), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, users.length, focusSelf]);
 
   /* Loading state */
   if (loading) {

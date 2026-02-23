@@ -41,9 +41,11 @@ export function Login({ onLogin }: { onLogin: () => void }) {
       <div className="login-glass-card">
         <h1 className="logo">FLIXOR</h1>
         <h2>Link your Plex Account</h2>
-        <p>Go to the URL below on your phone or computer and enter the code:</p>
+        <p>On your phone or computer, visit:</p>
 
         <div className="plex-url-box">plex.tv/link</div>
+
+        <p>Then enter this code:</p>
 
         {pin ? (
           <div className="pin-display">{pin.code}</div>
@@ -53,7 +55,10 @@ export function Login({ onLogin }: { onLogin: () => void }) {
 
         {error && <div className="error-message">{error}</div>}
 
-        <p className="login-footer">Waiting for authorization...</p>
+        <p className="login-footer">
+          Waiting for authorization…
+        </p>
+        <div className="loading-spinner login-footer-spinner"></div>
       </div>
     </div>
   );

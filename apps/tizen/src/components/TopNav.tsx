@@ -1,7 +1,32 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import {
+  useFocusable,
+  FocusContext,
+} from "@noriginmedia/norigin-spatial-navigation";
 import { UserAvatar } from "./UserAvatar";
 import { flixor } from "../services/flixor";
+
+interface NavButtonProps {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}
+
+function NavButton({ label, active, onPress }: NavButtonProps) {
+  const { ref, focused } = useFocusable({ onEnterPress: onPress });
+
+  return (
+    <button
+      ref={ref}
+      className={`nav-item${active ? " active" : ""}${focused ? " spatial-focused" : ""}`}
+      tabIndex={0}
+      onClick={onPress}
+    >
+      {label}
+    </button>
+  );
+}
 
 export function TopNav() {
   const navigate = useNavigate();
@@ -11,8 +36,13 @@ export function TopNav() {
   const [userName, setUserName] = useState("User");
   const [userThumb, setUserThumb] = useState<string | undefined>();
 
+  const { ref: navRef, focusKey } = useFocusable({
+    focusKey: "top-nav",
+    trackChildren: true,
+    isFocusBoundary: false,
+  });
+
   useEffect(() => {
-    // Try active profile first, then fall back to fetching home users
     const profile = flixor.currentProfile;
     if (profile) {
       setUserName(profile.title);
@@ -20,7 +50,6 @@ export function TopNav() {
       return;
     }
 
-    // No active profile — fetch home users and use the admin/first user
     flixor.getHomeUsers().then((users) => {
       if (users.length > 0) {
         const admin = users.find((u) => u.admin) || users[0];
@@ -37,68 +66,26 @@ export function TopNav() {
   }, [navigate]);
 
   return (
-    <nav className="tv-nav">
-      <h1 className="logo">FLIXOR</h1>
-      <div className="nav-items">
-        <button
-          className={`nav-item ${currentPath === "/" ? "active" : ""}`}
-          tabIndex={0}
-          onClick={() => navigate("/")}
-        >
-          Home
-        </button>
-        <button
-          className={`nav-item ${currentPath === "/mylist" ? "active" : ""}`}
-          tabIndex={0}
-          onClick={() => navigate("/mylist")}
-        >
-          My List
-        </button>
-        <button
-          className={`nav-item ${currentPath === "/new-popular" ? "active" : ""}`}
-          tabIndex={0}
-          onClick={() => navigate("/new-popular")}
-        >
-          New & Popular
-        </button>
-        <button
-          className={`nav-item ${currentPath.includes("/library/movie") ? "active" : ""}`}
-          tabIndex={0}
-          onClick={() => navigate("/library/movie")}
-        >
-          Movies
-        </button>
-        <button
-          className={`nav-item ${currentPath.includes("/library/show") ? "active" : ""}`}
-          tabIndex={0}
-          onClick={() => navigate("/library/show")}
-        >
-          Shows
-        </button>
-        <button
-          className={`nav-item ${currentPath === "/search" ? "active" : ""}`}
-          tabIndex={0}
-          onClick={() => navigate("/search")}
-        >
-          Search
-        </button>
-        <button
-          className={`nav-item ${currentPath === "/settings" ? "active" : ""}`}
-          tabIndex={0}
-          onClick={() => navigate("/settings")}
-        >
-          ⚙ Settings
-        </button>
-      </div>
-      <div className="nav-user">
-        <UserAvatar
-          thumb={userThumb}
-          title={userName}
-          onPress={handleAvatarPress}
-        />
-      </div>
-    </nav>
+    <FocusContext.Provider value={focusKey}>
+      <nav ref={navRef} className="tv-nav">
+        <h1 className="logo">FLIXOR</h1>
+        <div className="nav-items">
+          <NavButton label="Home" active={currentPath === "/"} onPress={() => navigate("/")} />
+          <NavButton label="My List" active={currentPath === "/mylist"} onPress={() => navigate("/mylist")} />
+          <NavButton label="New & Popular" active={currentPath === "/new-popular"} onPress={() => navigate("/new-popular")} />
+          <NavButton label="Movies" active={currentPath.includes("/library/movie")} onPress={() => navigate("/library/movie")} />
+          <NavButton label="Shows" active={currentPath.includes("/library/show")} onPress={() => navigate("/library/show")} />
+          <NavButton label="Search" active={currentPath === "/search"} onPress={() => navigate("/search")} />
+          <NavButton label="⚙ Settings" active={currentPath === "/settings"} onPress={() => navigate("/settings")} />
+        </div>
+        <div className="nav-user">
+          <UserAvatar
+            thumb={userThumb}
+            title={userName}
+            onPress={handleAvatarPress}
+          />
+        </div>
+      </nav>
+    </FocusContext.Provider>
   );
 }
-
-

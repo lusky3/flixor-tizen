@@ -62,6 +62,6 @@ describe("Login", () => {
   it("shows waiting for authorization text", () => {
     mockCreatePlexPin.mockReturnValue(new Promise(() => {}));
     render(<Login onLogin={vi.fn()} />);
-    expect(screen.getByText("Waiting for authorization...")).toBeInTheDocument();
+    expect(screen.getByText("Waiting for authorization…")).toBeInTheDocument();
   });
 });

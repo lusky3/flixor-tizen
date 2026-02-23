@@ -312,12 +312,16 @@ export function Home() {
   return (
     <div className="tv-container" onFocus={handleFocus}>
       {activeBackdrop ? (
-        <SmartImage
-          src={activeBackdrop}
-          alt=""
-          className="backdrop-layer-img"
-          kind="backdrop"
-        />
+        <div className="backdrop-layer">
+          <SmartImage
+            src={activeBackdrop}
+            alt=""
+            className="backdrop-layer-img"
+            kind="backdrop"
+            width="100%"
+            height="100%"
+          />
+        </div>
       ) : (
         <div className="backdrop-layer" />
       )}
