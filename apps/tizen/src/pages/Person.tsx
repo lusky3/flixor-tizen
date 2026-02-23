@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { useFocusable, FocusContext } from "@noriginmedia/norigin-spatial-navigation";
 import { flixor } from "../services/flixor";
 import * as tmdbService from "../services/tmdb";
 import { TopNav } from "../components/TopNav";
@@ -16,6 +17,11 @@ export function PersonPage() {
   >([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  const { ref: pageRef, focusKey: pageFocusKey } = useFocusable({
+    focusKey: "person-page",
+    trackChildren: true,
+  });
 
   useEffect(() => {
     const loadPerson = async () => {
@@ -80,8 +86,9 @@ export function PersonPage() {
     );
 
   return (
-    <div className="tv-container pt-nav">
-      <TopNav />
+    <FocusContext.Provider value={pageFocusKey}>
+      <div ref={pageRef} className="tv-container pt-nav">
+        <TopNav />
 
       <div className="person-header">
         <div className="person-profile-container">
@@ -151,8 +158,7 @@ export function PersonPage() {
           </div>
         </div>
       ))}
-    </div>
+      </div>
+    </FocusContext.Provider>
   );
 }
-
-

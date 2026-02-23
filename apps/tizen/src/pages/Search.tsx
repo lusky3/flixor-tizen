@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useFocusable, FocusContext } from "@noriginmedia/norigin-spatial-navigation";
 import { flixor } from "../services/flixor";
 import { loadSettings } from "../services/settings";
 import { getTrending as getTmdbTrending, search as tmdbSearch, buildImageUrl } from "../services/tmdb";
@@ -18,6 +19,11 @@ export function SearchPage() {
   const [traktPopular, setTraktPopular] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  const { ref: pageRef, focusKey: pageFocusKey } = useFocusable({
+    focusKey: "search-page",
+    trackChildren: true,
+  });
 
   useEffect(() => {
     const loadTrending = async () => {
@@ -178,8 +184,9 @@ export function SearchPage() {
   const showTraktPopular = query.length < 2 && traktPopular.length > 0;
 
   return (
-    <div className="tv-container pt-nav">
-      <TopNav />
+    <FocusContext.Provider value={pageFocusKey}>
+      <div ref={pageRef} className="tv-container pt-nav">
+        <TopNav />
       <SearchInput value={query} onChange={handleSearch} />
       <div className="search-results">
         {query.length < 2 && (
@@ -216,6 +223,7 @@ export function SearchPage() {
           />
         )}
       </div>
-    </div>
+      </div>
+    </FocusContext.Provider>
   );
 }

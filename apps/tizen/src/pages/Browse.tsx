@@ -214,6 +214,10 @@ export function BrowsePage() {
     (location.state as any)?.title || getSourceTitle(source);
 
   const { ref: gridRef, focusKey } = useFocusable({ trackChildren: true });
+  const { ref: browsePageRef, focusKey: browsePageFocusKey } = useFocusable({
+    focusKey: "browse-page",
+    trackChildren: true,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -266,8 +270,9 @@ export function BrowsePage() {
   };
 
   return (
-    <div className="tv-container pt-nav" onFocus={handleFocus}>
-      <TopNav />
+    <FocusContext.Provider value={browsePageFocusKey}>
+      <div ref={browsePageRef} className="tv-container pt-nav" onFocus={handleFocus}>
+        <TopNav />
 
       <div style={{ display: "flex", alignItems: "center", gap: "16px", margin: "20px 80px 0" }}>
         <button
@@ -328,6 +333,7 @@ export function BrowsePage() {
           </div>
         </FocusContext.Provider>
       )}
-    </div>
+      </div>
+    </FocusContext.Provider>
   );
 }

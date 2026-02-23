@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useFocusable, FocusContext } from "@noriginmedia/norigin-spatial-navigation";
 import { flixor } from "../services/flixor";
 import { loadSettings } from "../services/settings";
 import type { PlexMediaItem } from "@flixor/core";
@@ -24,6 +25,11 @@ export function LibraryPage() {
   const [hasMore, setHasMore] = useState(true);
   const libKeyRef = useRef<string | null>(null);
   const navigate = useNavigate();
+
+  const { ref: pageRef, focusKey: pageFocusKey } = useFocusable({
+    focusKey: "library-page",
+    trackChildren: true,
+  });
 
   useEffect(() => {
     const loadLibrary = async () => {
@@ -121,11 +127,12 @@ export function LibraryPage() {
   );
 
   return (
-    <div className="tv-container pt-nav">
-      <TopNav />
-      <h1 className="library-title" style={{ margin: "20px 80px 0" }}>
-        {type === "movie" ? "Movies" : "TV Shows"}
-      </h1>
+    <FocusContext.Provider value={pageFocusKey}>
+      <div ref={pageRef} className="tv-container pt-nav">
+        <TopNav />
+        <h1 className="library-title" style={{ margin: "20px 80px 0" }}>
+          {type === "movie" ? "Movies" : "TV Shows"}
+        </h1>
 
       <div className="library-filters">
         <input
@@ -173,6 +180,7 @@ export function LibraryPage() {
           />
         </div>
       )}
-    </div>
+      </div>
+    </FocusContext.Provider>
   );
 }

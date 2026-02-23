@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useFocusable, FocusContext } from "@noriginmedia/norigin-spatial-navigation";
 import type { PlexMediaItem } from "@flixor/core";
 import { TopNav } from "../components/TopNav";
 import { MediaCard } from "../components/MediaCard";
@@ -13,6 +14,11 @@ export function MyListPage() {
   const [items, setItems] = useState<MergedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  const { ref: pageRef, focusKey: pageFocusKey } = useFocusable({
+    focusKey: "mylist-page",
+    trackChildren: true,
+  });
 
   useEffect(() => {
     const loadWatchlist = async () => {
@@ -87,8 +93,9 @@ export function MyListPage() {
   }, []);
 
   return (
-    <div className="tv-container pt-nav">
-      <TopNav />
+    <FocusContext.Provider value={pageFocusKey}>
+      <div ref={pageRef} className="tv-container pt-nav">
+        <TopNav />
       <div className="mylist-header">
         <h1 className="library-title">My List</h1>
         <p className="mylist-subtitle">{items.length} titles</p>
@@ -122,7 +129,8 @@ export function MyListPage() {
           ))}
         </div>
       )}
-    </div>
+      </div>
+    </FocusContext.Provider>
   );
 }
 

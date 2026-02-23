@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useFocusable, FocusContext } from "@noriginmedia/norigin-spatial-navigation";
 import { flixor } from "../services/flixor";
 import * as tmdbService from "../services/tmdb";
 import * as traktService from "../services/trakt";
@@ -33,6 +34,11 @@ export function NewPopularPage() {
   const [period, setPeriod] = useState<PeriodFilter>("weekly");
   const [rows, setRows] = useState<RowData[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const { ref: pageRef, focusKey: pageFocusKey } = useFocusable({
+    focusKey: "newpopular-page",
+    trackChildren: true,
+  });
 
   useEffect(() => {
     loadContent();
@@ -279,8 +285,9 @@ export function NewPopularPage() {
   const showPeriodFilter = activeTab === "trending" || activeTab === "top10";
 
   return (
-    <div className="tv-container pt-nav">
-      <TopNav />
+    <FocusContext.Provider value={pageFocusKey}>
+      <div ref={pageRef} className="tv-container pt-nav">
+        <TopNav />
 
       <div className="newpopular-tabs">
         {tabs.map((tab) => (
@@ -331,6 +338,7 @@ export function NewPopularPage() {
           </section>
         ))
       )}
-    </div>
+      </div>
+    </FocusContext.Provider>
   );
 }

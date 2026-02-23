@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useFocusable, FocusContext } from "@noriginmedia/norigin-spatial-navigation";
 import { flixor } from "../services/flixor";
 import { loadSettings } from "../services/settings";
 import * as tmdbService from "../services/tmdb";
@@ -34,6 +35,12 @@ export function Home() {
   const [activeBackdrop, setActiveBackdrop] = useState<string | null>(null);
   const [ultraBlurColors, setUltraBlurColors] = useState<UltraBlurColors | null>(null);
   const navigate = useNavigate();
+
+  const { ref: pageRef, focusKey: pageFocusKey } = useFocusable({
+    focusKey: "home-page",
+    trackChildren: true,
+    isFocusBoundary: false,
+  });
 
   useEffect(() => {
     const fetchContinueWatching = async () => {
@@ -284,15 +291,17 @@ export function Home() {
 
   if (loading) {
     return (
-      <div className="tv-container">
-        <TopNav />
-        <div className="hero-section">
-          <div className="skeleton-hero shimmer" style={{ height: 400 }} />
+      <FocusContext.Provider value={pageFocusKey}>
+        <div ref={pageRef} className="tv-container">
+          <TopNav />
+          <div className="hero-section">
+            <div className="skeleton-hero shimmer" style={{ height: 400 }} />
+          </div>
+          <SkeletonRow count={6} variant="poster" />
+          <SkeletonRow count={6} variant="poster" />
+          <SkeletonRow count={6} variant="poster" />
         </div>
-        <SkeletonRow count={6} variant="poster" />
-        <SkeletonRow count={6} variant="poster" />
-        <SkeletonRow count={6} variant="poster" />
-      </div>
+      </FocusContext.Provider>
     );
   }
 
@@ -310,7 +319,8 @@ export function Home() {
   };
 
   return (
-    <div className="tv-container" onFocus={handleFocus}>
+    <FocusContext.Provider value={pageFocusKey}>
+      <div ref={pageRef} className="tv-container" onFocus={handleFocus}>
       {activeBackdrop ? (
         <div className="backdrop-layer">
           <SmartImage
@@ -422,6 +432,7 @@ export function Home() {
           <TraktSection type="trending" mediaType="movies" title="Trending on Trakt" />
         </>
       )}
-    </div>
+      </div>
+    </FocusContext.Provider>
   );
 }

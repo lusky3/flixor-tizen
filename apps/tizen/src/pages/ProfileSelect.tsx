@@ -44,6 +44,12 @@ function PinDialog({ user, error, submitting, onSubmit, onCancel }: PinDialogPro
       const el = inputRef.current as HTMLInputElement | null;
       el?.focus();
     },
+    onArrowPress: (direction) => {
+      // Allow spatial nav to handle up/down so focus can reach buttons below
+      if (direction === "down" || direction === "up") return true;
+      // Left/right stay in input for cursor movement
+      return false;
+    },
   });
 
   const { ref: submitRef, focused: submitFocused } = useFocusable({
