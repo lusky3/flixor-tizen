@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   startTranscode,
   stopTranscode,
@@ -24,7 +24,6 @@ vi.mock("./flixor", () => ({
   },
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { flixor } = await import("./flixor");
 
 beforeEach(() => {

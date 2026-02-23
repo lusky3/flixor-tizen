@@ -2,7 +2,7 @@
  * Targeted tests to boost coverage for Home.tsx, useTizenRemote.ts,
  * TraktSettings.tsx, and Details.tsx uncovered paths.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 
@@ -246,7 +246,7 @@ vi.mock("../../components/ServiceIcons", () => ({
 }));
 vi.mock("../../utils/media", () => ({
   extractTechBadges: () => ["4K", "HDR"],
-  formatResumeLabel: (offset: number, dur: number) => `${Math.round(offset / 60000)}m left`,
+  formatResumeLabel: (offset: number) => `${Math.round(offset / 60000)}m left`,
 }));
 
 import { Home } from "../../pages/Home";

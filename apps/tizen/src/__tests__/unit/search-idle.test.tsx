@@ -4,7 +4,7 @@ import { render, screen, act, fireEvent } from "@testing-library/react";
 // ── Mocks ──────────────────────────────────────────────────────────────
 
 vi.mock("@noriginmedia/norigin-spatial-navigation", () => ({
-  useFocusable: (opts?: { onEnterPress?: () => void }) => ({
+  useFocusable: () => ({
     ref: vi.fn(),
     focusKey: "mock-key",
     focused: false,

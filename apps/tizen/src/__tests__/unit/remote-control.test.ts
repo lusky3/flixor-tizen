@@ -81,7 +81,7 @@ describe("useTizenRemote", () => {
 
   it("does NOT block arrow key LEFT (37)", async () => {
     await loadHook();
-    const event = fireKey(KEY.LEFT);
+    fireKey(KEY.LEFT);
     // Arrow keys should not be prevented — spatial nav handles them
     // We verify navigate was NOT called (arrows don't trigger navigation)
     expect(mockNavigate).not.toHaveBeenCalled();

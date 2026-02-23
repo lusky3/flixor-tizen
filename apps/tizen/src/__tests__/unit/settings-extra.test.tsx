@@ -67,7 +67,7 @@ describe("ContinueWatchingSettings", () => {
   });
 
   it("disables cache duration when cache is off", () => {
-    const { container } = render(
+    render(
       <ContinueWatchingSettings settings={s({ continueWatchingCachedStreams: false })} onChange={vi.fn()} />,
     );
     const durationItem = screen.getByText("Cache Duration").closest("button");

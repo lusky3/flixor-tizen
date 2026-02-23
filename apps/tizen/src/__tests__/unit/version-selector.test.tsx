@@ -11,7 +11,7 @@ import {
 // ── Mocks ──────────────────────────────────────────────────────────────
 
 vi.mock("@noriginmedia/norigin-spatial-navigation", () => ({
-  useFocusable: vi.fn((_opts?: { onEnterPress?: () => void }) => ({
+  useFocusable: vi.fn(() => ({
     ref: vi.fn(),
     focusKey: "mock-key",
     focused: false,

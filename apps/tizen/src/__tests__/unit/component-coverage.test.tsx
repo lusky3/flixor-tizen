@@ -2,7 +2,7 @@
  * Targeted tests for low-coverage components: HeroCarousel, SeekSlider, PosterCard, TopNav
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, act, getAllByText } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 
 // ── Mocks ───────────────────────────────────────────────────────────
@@ -17,7 +17,7 @@ vi.mock("react-router-dom", () => ({
 
 vi.mock("@noriginmedia/norigin-spatial-navigation", () => ({
   useFocusable: (opts?: Record<string, unknown>) => ({
-    ref: (_el: HTMLElement | null) => {},
+    ref: () => {},
     focused: false,
     focusKey: (opts?.focusKey as string) || "test-key",
     focusSelf: vi.fn(),

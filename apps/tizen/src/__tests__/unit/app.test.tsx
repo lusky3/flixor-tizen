@@ -62,7 +62,7 @@ vi.mock("../../pages/Library", () => ({ LibraryPage: () => <div>Library</div> })
 vi.mock("../../pages/Details", () => ({ DetailsPage: () => <div>Details</div> }));
 vi.mock("../../pages/Player", () => ({ PlayerPage: () => <div>Player</div> }));
 vi.mock("../../pages/Search", () => ({ SearchPage: () => <div>Search</div> }));
-vi.mock("../../pages/Login", () => ({ Login: ({ onLogin }: any) => <div data-testid="login-page">Login</div> }));
+vi.mock("../../pages/Login", () => ({ Login: () => <div data-testid="login-page">Login</div> }));
 vi.mock("../../pages/Settings", () => ({ SettingsPage: () => <div>Settings</div> }));
 vi.mock("../../pages/MyList", () => ({ MyListPage: () => <div>MyList</div> }));
 vi.mock("../../pages/Person", () => ({ PersonPage: () => <div>Person</div> }));
@@ -76,7 +76,7 @@ vi.mock("../../components/Toast", () => ({ ToastContainer: () => <div data-testi
 vi.mock("../../hooks/useToast", () => ({
   useToastState: () => ({ toasts: [], addToast: vi.fn(), removeToast: vi.fn() }),
   ToastContext: {
-    Provider: ({ children, value }: any) => <>{children}</>,
+    Provider: ({ children }: any) => <>{children}</>,
   },
 }));
 

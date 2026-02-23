@@ -21,7 +21,7 @@ function resolveLayout(setting: string | undefined): "horizontal" | "vertical" {
   return setting === "horizontal" ? "horizontal" : "vertical";
 }
 
-function getRenderedEpisodeIds(episodes: Episode[], _layout: "horizontal" | "vertical"): string[] {
+function getRenderedEpisodeIds(episodes: Episode[], _layout?: "horizontal" | "vertical"): string[] {
   // Both layouts render the same set of episodes — only the component differs
   return episodes.map((ep) => ep.id);
 }

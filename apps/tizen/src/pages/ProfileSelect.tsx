@@ -47,9 +47,9 @@ function PinDialog({
     },
     onArrowPress: (direction) => {
       // Allow spatial nav to handle up/down so focus can reach buttons below
-      if (direction === "down" || direction === "up") return true;
+      if (direction === "down" || direction === "up") return false;
       // Left/right stay in input for cursor movement
-      return false;
+      return true;
     },
   });
 
@@ -57,15 +57,27 @@ function PinDialog({
   useEffect(() => {
     const timer = setTimeout(() => {
       focusSelf();
-      // Also give browser focus to the input so the user can type immediately
-      const el = inputRef.current as HTMLInputElement | null;
-      el?.focus();
     }, 100);
     return () => clearTimeout(timer);
-  }, [focusSelf, inputRef]);
+  }, [focusSelf]);
+
+  // Sync browser focus with spatial nav focus for the input
+  useEffect(() => {
+    if (inputFocused) {
+      const el = inputRef.current as HTMLInputElement | null;
+      el?.focus();
+    }
+  }, [inputFocused, inputRef]);
 
   const handleSubmit = useCallback(() => {
     if (pin.length === 4 && !submitting) onSubmit(pin);
+  }, [pin, submitting, onSubmit]);
+
+  // Auto-submit when 4 digits are entered
+  useEffect(() => {
+    if (pin.length === 4 && !submitting) {
+      onSubmit(pin);
+    }
   }, [pin, submitting, onSubmit]);
 
   const { ref: submitRef, focused: submitFocused } = useFocusable({

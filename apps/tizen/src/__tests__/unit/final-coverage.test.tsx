@@ -2,7 +2,7 @@
  * Final coverage push: TraktSettings login flow, SeekSlider arrow press,
  * PosterCard callbacks, Library page, ProfileSelect, useTizenRemote visibility
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 
@@ -19,7 +19,7 @@ vi.mock("@noriginmedia/norigin-spatial-navigation", () => ({
       capturedOnArrowPress = opts.onArrowPress as (dir: string) => boolean | void;
     }
     return {
-      ref: (_el: HTMLElement | null) => {},
+      ref: () => {},
       focused: capturedFocused,
       focusKey: "test-key",
       focusSelf: vi.fn(),
@@ -127,7 +127,6 @@ describe("SeekSlider – onArrowPress handler", () => {
 // PART 2: Library page – filtering, pagination, empty states
 // ═══════════════════════════════════════════════════════════════════
 
-const mockNavigate = vi.fn();
 const mockLibParams: Record<string, string> = { type: "movie" };
 
 vi.mock("../../services/flixor", () => ({

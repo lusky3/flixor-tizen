@@ -15,7 +15,7 @@ vi.mock('@noriginmedia/norigin-spatial-navigation', () => ({
 vi.mock('../services/flixor', () => ({
   flixor: {
     plexServer: {
-      getImageUrl: vi.fn((thumb: string, _size: number) => `http://plex${thumb}`),
+      getImageUrl: vi.fn((thumb: string) => `http://plex${thumb}`),
     },
   },
 }));

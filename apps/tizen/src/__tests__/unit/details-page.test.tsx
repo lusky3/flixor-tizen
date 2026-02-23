@@ -11,7 +11,7 @@ vi.mock("react-router-dom", () => ({
 }));
 
 vi.mock("@noriginmedia/norigin-spatial-navigation", () => ({
-  useFocusable: (opts?: any) => ({
+  useFocusable: () => ({
     ref: { current: null },
     focused: false,
     focusKey: "test-key",

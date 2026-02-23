@@ -6,8 +6,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { IntegrationSettings } from "../../components/settings/IntegrationSettings";
-import { ContinueWatchingSettings } from "../../components/settings/ContinueWatchingSettings";
-import { DetailsScreenSettings } from "../../components/settings/DetailsScreenSettings";
 import { OverseerrSettings } from "../../components/settings/OverseerrSettings";
 import { MDBListSettings } from "../../components/settings/MDBListSettings";
 import { TMDBSettings } from "../../components/settings/TMDBSettings";
@@ -19,7 +17,7 @@ import { DEFAULT_SETTINGS, type TizenSettings } from "../../services/settings";
 // Mock useFocusable to return a proper callback ref so React attaches it
 vi.mock("@noriginmedia/norigin-spatial-navigation", () => ({
   useFocusable: (opts?: { onEnterPress?: () => void }) => ({
-    ref: (el: HTMLElement | null) => { /* callback ref - React will call this */ },
+    ref: () => { /* callback ref - React will call this */ },
     focused: false,
     focusKey: "test-key",
     focusSelf: vi.fn(),

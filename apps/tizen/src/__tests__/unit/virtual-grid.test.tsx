@@ -19,7 +19,7 @@ class MockIntersectionObserver {
   observe = vi.fn();
   unobserve = vi.fn();
   disconnect = vi.fn();
-  constructor(cb: IntersectionObserverCallback, _opts?: IntersectionObserverInit) {}
+  constructor(_cb: IntersectionObserverCallback, _opts?: IntersectionObserverInit) {}
 }
 globalThis.IntersectionObserver = MockIntersectionObserver as any;
 

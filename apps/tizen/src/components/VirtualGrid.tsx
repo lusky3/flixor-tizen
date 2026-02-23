@@ -73,6 +73,26 @@ function FocusableGridItem<T extends VirtualGridItem>({
 }) {
   const { ref, focused } = useFocusable({
     focusKey: `virtual-grid-item-${item.id}`,
+    onFocus: () => {
+      const el = ref.current;
+      const container = el?.closest(".virtual-grid-container");
+      if (el && container) {
+        const rect = el.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+
+        if (rect.bottom > containerRect.bottom - 40) {
+          container.scrollBy({
+            top: rect.bottom - containerRect.bottom + 100,
+            behavior: "smooth",
+          });
+        } else if (rect.top < containerRect.top + 40) {
+          container.scrollBy({
+            top: rect.top - containerRect.top - 100,
+            behavior: "smooth",
+          });
+        }
+      }
+    },
   });
 
   return (
@@ -127,10 +147,10 @@ function InfiniteSentinel({
 
 export function VirtualGrid<T extends VirtualGridItem>({
   items,
-  rowHeight = 280,
-  columnWidth = 160,
-  gap = 12,
-  overscan = 3,
+  rowHeight = 360,
+  columnWidth = 240,
+  gap = 25,
+  overscan = 5,
   render,
   hasMore,
   loadMore,

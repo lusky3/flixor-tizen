@@ -8,7 +8,6 @@ import {
   getSubtitleOptions,
   getAudioOptions,
   getExternalSubtitleUrl,
-  type StreamDecisionInput,
 } from '../../services/streamDecision';
 
 describe('StreamDecision Unit Tests', () => {
@@ -400,8 +399,6 @@ import {
   getBackendStreamUrl,
   updateBackendProgress,
   type BackendStreamOptions,
-  type BackendStreamResult,
-  type BackendPlaybackState,
 } from '../../services/streamDecision';
 import { vi, beforeEach, afterEach } from 'vitest';
 

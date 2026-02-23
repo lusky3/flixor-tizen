@@ -52,7 +52,7 @@ vi.mock("../../components/MediaCard", () => ({
   MediaCard: ({ item }: any) => <div data-testid="media-card">{item.title}</div>,
 }));
 vi.mock("../../components/FilterBar", () => ({
-  FilterBar: ({ options, activeId, onSelect }: any) => (
+  FilterBar: ({ options, onSelect }: any) => (
     <div data-testid="filter-bar">
       {options.map((o: any) => (
         <button key={o.id} data-testid={`filter-${o.id}`} onClick={() => onSelect(o.id)}>

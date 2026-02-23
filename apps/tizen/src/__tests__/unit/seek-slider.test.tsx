@@ -4,7 +4,7 @@ import { SeekSlider } from "../../components/SeekSlider";
 import { formatTime, clampSeek, fillPercent } from "../../utils/seekSliderUtils";
 
 vi.mock("@noriginmedia/norigin-spatial-navigation", () => ({
-  useFocusable: (opts?: any) => ({
+  useFocusable: () => ({
     ref: { current: null },
     focused: false,
   }),

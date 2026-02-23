@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { useFocusable } from "@noriginmedia/norigin-spatial-navigation";
 
 interface SearchInputProps {
@@ -15,7 +15,20 @@ export function SearchInput({
   const inputRef = useRef<HTMLInputElement>(null);
   const { ref, focused } = useFocusable({
     onEnterPress: () => inputRef.current?.focus(),
+    onArrowPress: (direction) => {
+      if (direction === "down" || direction === "up") return false;
+      return true;
+    },
   });
+
+  // Sync browser focus with spatial nav focus
+  useEffect(() => {
+    if (focused) {
+      inputRef.current?.focus();
+    } else {
+      inputRef.current?.blur();
+    }
+  }, [focused]);
 
   return (
     <div ref={ref} className="search-container">
@@ -27,7 +40,6 @@ export function SearchInput({
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          autoFocus
         />
         {value.length > 0 && (
           <button
