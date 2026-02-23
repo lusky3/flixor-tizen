@@ -125,9 +125,18 @@ export function MyListPage() {
     <FocusContext.Provider value={pageFocusKey}>
       <div ref={pageRef} className="tv-container pt-nav">
         <TopNav />
-        <div className="mylist-header">
+        <div className="library-header" style={{ margin: "20px 80px 0" }}>
           <h1 className="library-title">My List</h1>
-          <p className="mylist-subtitle">{items.length} titles</p>
+          <p
+            className="mylist-subtitle"
+            style={{
+              color: "rgba(255,255,255,0.4)",
+              fontSize: "22px",
+              marginTop: "5px",
+            }}
+          >
+            {items.length} titles
+          </p>
         </div>
 
         {loading && <div className="loading">Loading Watchlist...</div>}
@@ -137,9 +146,7 @@ export function MyListPage() {
             <div className="empty-icon">📺</div>
             <h2>Your list is empty</h2>
             <p>Add movies and shows to your watchlist to see them here.</p>
-            <button className="btn-primary" onClick={() => navigate("/")}>
-              Browse Home
-            </button>
+            <HomeButton onClick={() => navigate("/")} />
           </div>
         )}
 
@@ -160,5 +167,18 @@ export function MyListPage() {
         )}
       </div>
     </FocusContext.Provider>
+  );
+}
+function HomeButton({ onClick }: { onClick: () => void }) {
+  const { ref, focused } = useFocusable({ onEnterPress: onClick });
+  return (
+    <button
+      ref={ref}
+      className={`btn-primary${focused ? " focused" : ""}`}
+      onClick={onClick}
+      style={{ marginTop: "30px" }}
+    >
+      Browse Home
+    </button>
   );
 }

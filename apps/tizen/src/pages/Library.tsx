@@ -192,7 +192,7 @@ export function LibraryPage() {
             No results found
           </div>
         ) : (
-          <div style={{ padding: "0 80px 100px", flex: 1 }}>
+          <div style={{ padding: "0 80px 100px", width: "100%", flex: 1 }}>
             <VirtualGrid<LibraryGridItem>
               items={gridItems}
               render={renderCard}

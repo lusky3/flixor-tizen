@@ -20,6 +20,13 @@ export function ContinueWatchingLandscapeCard({
 }: ContinueWatchingLandscapeCardProps) {
   const { ref, focused } = useFocusable({
     onEnterPress: () => onSelect(item.ratingKey),
+    onFocus: () => {
+      (ref.current as HTMLElement | null)?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+    },
   });
 
   const thumb = item.thumb || item.art;

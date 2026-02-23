@@ -58,13 +58,13 @@ export function TechnicalChips(props: TechnicalChipsProps) {
           key={chip}
           style={{
             display: "inline-block",
-            padding: "4px 12px",
-            borderRadius: 999,
+            padding: "8px 18px",
+            borderRadius: 12,
             background: "rgba(255,255,255,0.12)",
             color: "rgba(255,255,255,0.85)",
-            fontSize: 12,
-            fontWeight: 600,
-            letterSpacing: "0.02em",
+            fontSize: 22,
+            fontWeight: 700,
+            letterSpacing: "0.05em",
             whiteSpace: "nowrap",
           }}
         >

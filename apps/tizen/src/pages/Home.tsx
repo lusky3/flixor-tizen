@@ -368,13 +368,7 @@ export function Home() {
     if (target.closest(".hero-section")) {
       const container = document.querySelector(".tv-container");
       if (container) container.scrollTo({ top: 0, behavior: "smooth" });
-      return;
     }
-    target.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-      inline: "center",
-    });
   };
 
   if (loading) {

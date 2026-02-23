@@ -1,4 +1,7 @@
-import { useFocusable, FocusContext } from "@noriginmedia/norigin-spatial-navigation";
+import {
+  useFocusable,
+  FocusContext,
+} from "@noriginmedia/norigin-spatial-navigation";
 import type { SearchResult } from "../types";
 
 interface SearchResultsProps {
@@ -58,6 +61,13 @@ function ResultCard({
 }) {
   const { ref, focused } = useFocusable({
     onEnterPress: () => onSelect(item),
+    onFocus: () => {
+      (ref.current as HTMLElement | null)?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+    },
   });
 
   const isTrending = variant === "trending";

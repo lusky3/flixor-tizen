@@ -935,7 +935,6 @@ input:focus,
   border-color: white;
 }
 
-
 /* Search Enhancements */
 .search-container {
   padding: 20px 80px;
@@ -1049,7 +1048,7 @@ input:focus,
   aspect-ratio: 2/3;
   border-radius: 12px;
   overflow: hidden;
-  background: #222;
+  background: #1a1a1a;
   border: 3px solid transparent;
   cursor: pointer;
   padding: 0;
@@ -1057,10 +1056,13 @@ input:focus,
   transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.search-result-card:focus {
-  transform: scale(1.1);
+.search-result-card:focus,
+.search-result-card.spatial-focused {
+  transform: scale(1.15);
   border-color: #ff4b2b;
-  box-shadow: 0 0 0 4px rgba(255, 75, 43, 0.6);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.8),
+    0 0 0 4px rgba(255, 75, 43, 0.6);
   z-index: 10;
   outline: none;
 }
@@ -1070,16 +1072,21 @@ input:focus,
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 12px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+  padding: 24px 16px 16px;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0.8) 40%,
+    transparent 100%
+  );
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .search-result-title {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 22px;
+  font-weight: 700;
   color: white;
   white-space: nowrap;
   overflow: hidden;
@@ -1087,8 +1094,9 @@ input:focus,
 }
 
 .search-result-meta {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .availability-badge {
@@ -1906,7 +1914,9 @@ input:focus,
 .server-card.focused {
   transform: scale(1.06);
   border-color: #ff4b2b;
-  box-shadow: 0 0 0 4px rgba(255, 75, 43, 0.5), 0 20px 40px rgba(0, 0, 0, 0.6);
+  box-shadow:
+    0 0 0 4px rgba(255, 75, 43, 0.5),
+    0 20px 40px rgba(0, 0, 0, 0.6);
   background: rgba(255, 255, 255, 0.08);
   outline: none;
 }
@@ -1984,7 +1994,6 @@ input:focus,
   gap: 20px;
 }
 
-
 /* Login / Link to Plex Page */
 .login-container {
   width: 100vw;
@@ -1992,7 +2001,12 @@ input:focus,
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(ellipse at 50% 30%, #1a1028 0%, #0a0a14 60%, #050505 100%);
+  background: radial-gradient(
+    ellipse at 50% 30%,
+    #1a1028 0%,
+    #0a0a14 60%,
+    #050505 100%
+  );
   overflow: hidden;
 }
 
@@ -2114,7 +2128,9 @@ input:focus,
 .profile-card.focused {
   transform: scale(1.08);
   border-color: #ff4b2b;
-  box-shadow: 0 0 0 4px rgba(255, 75, 43, 0.5), 0 20px 40px rgba(0, 0, 0, 0.6);
+  box-shadow:
+    0 0 0 4px rgba(255, 75, 43, 0.5),
+    0 20px 40px rgba(0, 0, 0, 0.6);
   background: rgba(255, 255, 255, 0.08);
   outline: none;
 }
@@ -2229,7 +2245,9 @@ input:focus,
 .pin-input.focused {
   border-color: #ff4b2b;
   background: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 0 0 4px rgba(255, 75, 43, 0.4), 0 0 20px rgba(255, 75, 43, 0.2);
+  box-shadow:
+    0 0 0 4px rgba(255, 75, 43, 0.4),
+    0 0 20px rgba(255, 75, 43, 0.2);
 }
 
 .pin-error {
@@ -2505,21 +2523,34 @@ input:focus,
   pointer-events: none;
 }
 
-
 /* Skeleton / Shimmer Loading */
 @keyframes shimmer {
-  0% { background-position: -600px 0; }
-  100% { background-position: 600px 0; }
+  0% {
+    background-position: -600px 0;
+  }
+  100% {
+    background-position: 600px 0;
+  }
 }
 
 .shimmer {
-  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.04) 75%);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.04) 75%
+  );
   background-size: 600px 100%;
   animation: shimmer 1.5s infinite linear;
 }
 
 .skeleton {
-  background: linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.06) 75%);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.06) 25%,
+    rgba(255, 255, 255, 0.12) 50%,
+    rgba(255, 255, 255, 0.06) 75%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
@@ -2691,4 +2722,10 @@ body.performance-mode .cast-thumb-container,
 body.performance-mode .episode-play-overlay,
 body.performance-mode .tv-card-label {
   transition: none;
+}
+
+body.performance-mode * {
+  box-shadow: none !important;
+  text-shadow: none !important;
+  animation-duration: 0.001s !important;
 }

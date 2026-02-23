@@ -138,6 +138,30 @@ export function DetailsPage() {
   }, []);
 
   useEffect(() => {
+    const handleBackKey = (e: KeyboardEvent) => {
+      // Tizen Return key is 10009
+      if (e.keyCode === 10009 || e.key === "Backspace" || e.key === "Escape") {
+        if (showTrailerModal) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          setShowTrailerModal(false);
+        } else if (personModalOpen) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          setPersonModalOpen(false);
+        } else if (showVersionSelector) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          setShowVersionSelector(false);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleBackKey, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", handleBackKey, { capture: true });
+  }, [showTrailerModal, personModalOpen, showVersionSelector]);
+
+  useEffect(() => {
     if (!ratingKey) return;
 
     setLoading(true);
@@ -168,8 +192,41 @@ export function DetailsPage() {
 
     const fetchData = async () => {
       try {
-        const data = await flixor.plexServer.getMetadata(ratingKey);
-        if (!data) return;
+        let data: PlexMediaItem;
+        if (ratingKey.startsWith("tmdb-")) {
+          const parts = ratingKey.split("-");
+          const type = parts[1] as "movie" | "tv";
+          const id = Number(parts[2]);
+          const tmdbData = await getTmdbDetails(id, type);
+          if (!tmdbData) throw new Error("TMDB data not found");
+
+          const runtime =
+            type === "movie"
+              ? (tmdbData as TMDBMovieDetails).runtime
+              : (tmdbData as TMDBTVDetails).episode_run_time?.[0];
+
+          data = {
+            ratingKey,
+            key: ratingKey,
+            type: type === "tv" ? "show" : "movie",
+            title: tmdbData.title || tmdbData.name || "",
+            summary: tmdbData.overview || "",
+            year: Number(
+              (tmdbData.release_date || tmdbData.first_air_date || "").split(
+                "-",
+              )[0],
+            ),
+            thumb: buildImageUrl(tmdbData.poster_path, "poster"),
+            art: buildImageUrl(tmdbData.backdrop_path, "backdrop"),
+            duration: (runtime || 0) * 60000,
+            Guid: [{ id: `tmdb://${id}` }],
+            contentRating: (tmdbData as any).adult ? "R" : "PG-13",
+          } as PlexMediaItem;
+        } else {
+          const plexData = await flixor.plexServer.getMetadata(ratingKey);
+          if (!plexData) return;
+          data = plexData;
+        }
         setItem(data);
 
         // Extract tech badges using utility (uses selectedMedia index, default 0 on fresh load)
