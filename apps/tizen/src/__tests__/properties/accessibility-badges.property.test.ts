@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, it, expect } from "vitest";
-import { detectAccessibilityBadges } from "../../components/AccessibilityBadges";
+import { detectAccessibilityBadges } from "../../utils/accessibilityUtils";
 
 // Feature: tizen-parity-phase2, Property 22: Accessibility badge detection from Plex streams
 

@@ -87,7 +87,8 @@ vi.mock("../../components/WatchlistButton", () => ({ WatchlistButton: () => <div
 vi.mock("../../components/RequestButton", () => ({ RequestButton: () => <div data-testid="request-btn" /> }));
 vi.mock("../../components/MoodTags", () => ({ MoodTags: () => <div data-testid="mood-tags" /> }));
 vi.mock("../../components/TechnicalChips", () => ({ TechnicalChips: () => <div data-testid="tech-chips" /> }));
-vi.mock("../../components/AccessibilityBadges", () => ({ AccessibilityBadges: () => <div />, detectAccessibilityBadges: () => ({ hasCC: false, hasSDH: false, hasAD: false }) }));
+vi.mock("../../components/AccessibilityBadges", () => ({ AccessibilityBadges: () => <div /> }));
+vi.mock("../../utils/accessibilityUtils", () => ({ detectAccessibilityBadges: () => ({ hasCC: false, hasSDH: false, hasAD: false }) }));
 vi.mock("../../components/EpisodeLandscapeCard", () => ({ EpisodeLandscapeCard: () => <div /> }));
 vi.mock("../../components/EpisodeSkeletonList", () => ({ EpisodeSkeletonList: () => <div data-testid="episode-skeleton" /> }));
 vi.mock("../../components/PersonModal", () => ({ PersonModal: () => <div data-testid="person-modal" /> }));

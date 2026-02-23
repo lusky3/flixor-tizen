@@ -163,6 +163,8 @@ vi.mock("../../components/AccessibilityBadges", () => ({
   AccessibilityBadges: ({ hasCC }: { hasCC: boolean }) => (
     <div data-testid="a11y-badges">{hasCC ? "CC" : ""}</div>
   ),
+}));
+vi.mock("../../utils/accessibilityUtils", () => ({
   detectAccessibilityBadges: (streams: Array<{ displayTitle?: string }>) => ({
     hasCC: streams.some((s) => s.displayTitle?.includes("CC")),
     hasSDH: false,

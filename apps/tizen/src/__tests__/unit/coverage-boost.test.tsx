@@ -224,6 +224,8 @@ vi.mock("../../components/TechnicalChips", () => ({
 }));
 vi.mock("../../components/AccessibilityBadges", () => ({
   AccessibilityBadges: () => <div data-testid="a11y-badges" />,
+}));
+vi.mock("../../utils/accessibilityUtils", () => ({
   detectAccessibilityBadges: () => ({ hasCC: false, hasSDH: false, hasAD: false }),
 }));
 vi.mock("../../components/EpisodeLandscapeCard", () => ({

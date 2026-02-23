@@ -9,7 +9,8 @@ export interface PlexSettingsProps {
   onChange: <K extends keyof TizenSettings>(key: K, value: TizenSettings[K]) => void;
 }
 
-export function PlexSettings({ settings: _settings, onChange: _onChange }: PlexSettingsProps) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function PlexSettings(_: PlexSettingsProps) {
   const serverName = flixor.server?.name ?? "Not connected";
   const profileName = flixor.currentProfile?.title ?? "Main Account";
 

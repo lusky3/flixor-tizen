@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   useFocusable,
@@ -29,13 +29,11 @@ function FocusableCard({
   onItemClick: (item: PlexMediaItem) => void;
   onItemFocus?: (item: PlexMediaItem) => void;
 }) {
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
   const { ref, focused } = useFocusable({
     onEnterPress: () => onItemClick(item),
     onFocus: () => {
       onItemFocus?.(item);
-      wrapperRef.current?.scrollIntoView({
+      (ref.current as HTMLDivElement | null)?.scrollIntoView({
         behavior: "smooth",
         block: "nearest",
         inline: "center",
@@ -45,12 +43,7 @@ function FocusableCard({
 
   return (
     <div
-      ref={(el) => {
-        // Assign both refs
-        (ref as React.MutableRefObject<HTMLDivElement | null>).current = el;
-        (wrapperRef as React.MutableRefObject<HTMLDivElement | null>).current =
-          el;
-      }}
+      ref={ref}
       className={`focusable-card-wrapper${focused ? " focused" : ""}`}
     >
       <MediaCard

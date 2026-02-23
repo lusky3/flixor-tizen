@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import {
-  detectAccessibilityBadges,
   AccessibilityBadges,
 } from "../../components/AccessibilityBadges";
+import { detectAccessibilityBadges } from "../../utils/accessibilityUtils";
 
 // --- detectAccessibilityBadges ---
 

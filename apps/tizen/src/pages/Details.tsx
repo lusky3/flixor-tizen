@@ -39,10 +39,8 @@ import {
 } from "../services/tmdb";
 import { MoodTags } from "../components/MoodTags";
 import { TechnicalChips } from "../components/TechnicalChips";
-import {
-  AccessibilityBadges,
-  detectAccessibilityBadges,
-} from "../components/AccessibilityBadges";
+import { AccessibilityBadges } from "../components/AccessibilityBadges";
+import { detectAccessibilityBadges } from "../utils/accessibilityUtils";
 import { EpisodeLandscapeCard } from "../components/EpisodeLandscapeCard";
 import { EpisodeSkeletonList } from "../components/EpisodeSkeletonList";
 import { PersonModal } from "../components/PersonModal";
