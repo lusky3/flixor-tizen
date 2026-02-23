@@ -1,4 +1,5 @@
 import { hexToRgba, type UltraBlurColors } from "../services/colorExtractor";
+import { loadSettings } from "../services/settings";
 
 interface UltraBlurBackgroundProps {
   src: string;
@@ -7,6 +8,20 @@ interface UltraBlurBackgroundProps {
 }
 
 export function UltraBlurBackground({ src, className, colors }: UltraBlurBackgroundProps) {
+  const perfMode = loadSettings().performanceModeEnabled;
+
+  // In performance mode, render a simple dark background instead of the expensive blur
+  if (perfMode) {
+    return (
+      <div
+        className={`ultra-blur-bg ultra-blur-bg--perf${className ? ` ${className}` : ""}`}
+        style={{ backgroundImage: `url(${src})` }}
+      >
+        <div className="ultra-blur-bg__overlay" />
+      </div>
+    );
+  }
+
   return (
     <div
       className={`ultra-blur-bg${className ? ` ${className}` : ""}`}

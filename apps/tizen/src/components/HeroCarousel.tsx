@@ -98,6 +98,9 @@ export function HeroCarousel({ items, onBackdropChange }: HeroCarouselProps) {
   useEffect(() => {
     if (items.length <= 1) return;
 
+    const settings = loadSettings();
+    if (settings.performanceModeEnabled) return; // Skip auto-rotation in performance mode
+
     const timer = globalThis.setInterval(() => {
       if (pausedRef.current) return;
 

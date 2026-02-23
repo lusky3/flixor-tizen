@@ -93,6 +93,9 @@ export interface TizenSettings {
   showRtCritics?: boolean;
   showRtAudience?: boolean;
 
+  // Performance
+  performanceModeEnabled?: boolean;
+
   // TMDB settings
   tmdbBearerToken?: string;
 }

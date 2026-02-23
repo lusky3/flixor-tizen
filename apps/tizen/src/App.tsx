@@ -162,6 +162,31 @@ function AppRoutes() {
 
 function App() {
   const toastState = useToastState();
+
+  // Apply performance-mode class to <body> based on settings
+  useEffect(() => {
+    const settings = loadSettings();
+    if (settings.performanceModeEnabled) {
+      document.body.classList.add("performance-mode");
+    } else {
+      document.body.classList.remove("performance-mode");
+    }
+  }, []);
+
+  // Listen for storage changes so toggling the setting takes effect immediately
+  useEffect(() => {
+    const onStorage = () => {
+      const settings = loadSettings();
+      if (settings.performanceModeEnabled) {
+        document.body.classList.add("performance-mode");
+      } else {
+        document.body.classList.remove("performance-mode");
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   return (
     <ToastContext.Provider value={toastState}>
       <AppRoutes />

@@ -18,9 +18,10 @@ import { TraktSettings } from "../components/settings/TraktSettings";
 import { TMDBSettings } from "../components/settings/TMDBSettings";
 import { MDBListSettings } from "../components/settings/MDBListSettings";
 import { OverseerrSettings } from "../components/settings/OverseerrSettings";
+import { PerformanceSettings } from "../components/settings/PerformanceSettings";
 
 type SettingsScreen = "main" | "homeScreen" | "playback" | "integrations" | "appearance"
-  | "catalog" | "continueWatching" | "detailsScreen" | "plex" | "trakt" | "tmdb" | "mdblist" | "overseerr";
+  | "catalog" | "continueWatching" | "detailsScreen" | "plex" | "trakt" | "tmdb" | "mdblist" | "overseerr" | "performance";
 
 interface MenuItem {
   key: SettingsScreen;
@@ -40,6 +41,7 @@ const SUB_SCREENS: MenuItem[] = [
   { key: "mdblist", label: "MDBList" },
   { key: "overseerr", label: "Overseerr" },
   { key: "integrations", label: "Integrations" },
+  { key: "performance", label: "Performance" },
 ];
 
 export function SettingsPage() {
@@ -55,6 +57,15 @@ export function SettingsPage() {
   const updateSetting = useCallback(<K extends keyof TizenSettings>(key: K, value: TizenSettings[K]) => {
     const next = saveSettings({ [key]: value });
     setSettings(next);
+
+    // Sync performance-mode class on body immediately
+    if (key === "performanceModeEnabled") {
+      if (value) {
+        document.body.classList.add("performance-mode");
+      } else {
+        document.body.classList.remove("performance-mode");
+      }
+    }
   }, []);
 
   const handleDiscoveryToggle = useCallback((disabled: boolean) => {
@@ -164,6 +175,9 @@ export function SettingsPage() {
             )}
             {screen === "overseerr" && (
               <OverseerrSettings settings={settings} onChange={updateSetting} />
+            )}
+            {screen === "performance" && (
+              <PerformanceSettings settings={settings} onChange={updateSetting} />
             )}
           </div>
         </div>

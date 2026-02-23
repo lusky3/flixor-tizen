@@ -2631,3 +2631,64 @@ input:focus,
     transform: translateY(0);
   }
 }
+
+/* ── Performance Mode ────────────────────────────────────────────────
+   Disables expensive GPU effects for older Tizen TV models:
+   - backdrop-filter blur (not HW-accelerated on pre-2022 models)
+   - background-image transitions on ultra-blur-bg
+   - CSS transitions / animations on cards, buttons, overlays
+   ──────────────────────────────────────────────────────────────────── */
+
+body.performance-mode .ultra-blur-bg {
+  filter: none;
+  transform: none;
+  transition: none;
+}
+
+body.performance-mode .ultra-blur-bg--perf {
+  filter: none;
+  transform: none;
+  transition: none;
+  opacity: 0.35;
+}
+
+body.performance-mode .ultra-blur-bg__dynamic-overlay {
+  transition: none;
+}
+
+body.performance-mode .meta-badge,
+body.performance-mode .btn-secondary,
+body.performance-mode .player-skip-btn,
+body.performance-mode .next-episode-overlay,
+body.performance-mode .toast,
+body.performance-mode .onboarding-card,
+body.performance-mode .modal-overlay,
+body.performance-mode .version-dropdown,
+body.performance-mode .update-banner {
+  backdrop-filter: none;
+}
+
+body.performance-mode .hero-section {
+  transition: none;
+}
+
+body.performance-mode .hero-slide-exit {
+  opacity: 1;
+}
+
+body.performance-mode .tv-card,
+body.performance-mode .nav-item,
+body.performance-mode .btn-primary,
+body.performance-mode .btn-secondary,
+body.performance-mode .btn-overseerr,
+body.performance-mode .trending-card,
+body.performance-mode .search-result-card,
+body.performance-mode .tab-btn,
+body.performance-mode .genre-pill,
+body.performance-mode .filter-pill,
+body.performance-mode .filter-bar-pill,
+body.performance-mode .cast-thumb-container,
+body.performance-mode .episode-play-overlay,
+body.performance-mode .tv-card-label {
+  transition: none;
+}
